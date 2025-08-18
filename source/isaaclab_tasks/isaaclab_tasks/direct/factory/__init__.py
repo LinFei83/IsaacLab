@@ -1,5 +1,5 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
-# All rights reserved.
+# 版权所有 (c) 2022-2025, The Isaac Lab Project 开发者 (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# 保留所有权利.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
@@ -10,7 +10,7 @@ from .factory_env import FactoryEnv
 from .factory_env_cfg import FactoryTaskGearMeshCfg, FactoryTaskNutThreadCfg, FactoryTaskPegInsertCfg
 
 ##
-# Register Gym environments.
+# 注册 Gym 环境.
 ##
 
 gym.register(

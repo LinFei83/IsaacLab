@@ -3,9 +3,9 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Factory: control module.
+"""Factory: 控制模块。
 
-Imported by base, environment, and task classes. Not directly executed.
+由基础类、环境类和任务类导入。不直接执行。
 """
 
 import math
@@ -32,10 +32,10 @@ def compute_dof_torque(
     task_deriv_gains,
     device,
 ):
-    """Compute Franka DOF torque to move fingertips towards target pose."""
-    # References:
+    """计算Franka自由度扭矩，使指尖向目标姿态移动。"""
+    # 参考资料:
     # 1) https://ethz.ch/content/dam/ethz/special-interest/mavt/robotics-n-intelligent-systems/rsl-dam/documents/RobotDynamics2018/RD_HS2018script.pdf
-    # 2) Modern Robotics
+    # 2) Modern Robotics (现代机器人学)
 
     num_envs = cfg.scene.num_envs
     dof_torque = torch.zeros((num_envs, dof_pos.shape[1]), device=device)
@@ -51,7 +51,7 @@ def compute_dof_torque(
     )
     delta_fingertip_pose = torch.cat((pos_error, axis_angle_error), dim=1)
 
-    # Set tau = k_p * task_pos_error - k_d * task_vel_error (building towards eq. 3.96-3.98)
+    # 设置 tau = k_p * 任务位置误差 - k_d * 任务速度误差 (构建方程 3.96-3.98)
     task_wrench_motion = _apply_task_space_gains(
         delta_fingertip_pose=delta_fingertip_pose,
         fingertip_midpoint_linvel=fingertip_midpoint_linvel,
@@ -61,7 +61,7 @@ def compute_dof_torque(
     )
     task_wrench += task_wrench_motion
 
-    # Set tau = J^T * tau, i.e., map tau into joint space as desired
+    # 设置 tau = J^T * tau，即按照需要将tau映射到关节空间
     jacobian_T = torch.transpose(jacobian, dim0=1, dim1=2)
     dof_torque[:, 0:7] = (jacobian_T @ task_wrench.unsqueeze(-1)).squeeze(-1)
 
@@ -86,7 +86,7 @@ def compute_dof_torque(
     torque_null = (torch.eye(7, device=device).unsqueeze(0) - torch.transpose(jacobian, 1, 2) @ j_eef_inv) @ u_null
     dof_torque[:, 0:7] += torque_null.squeeze(-1)
 
-    # TODO: Verify it's okay to no longer do gripper control here.
+    # TODO: 验证不再在这里进行夹爪控制是否可以。
     dof_torque = torch.clamp(dof_torque, min=-100.0, max=100.0)
     return dof_torque, task_wrench
 
@@ -99,8 +99,8 @@ def get_pose_error(
     jacobian_type,
     rot_error_type,
 ):
-    """Compute task-space error between target Franka fingertip pose and current pose."""
-    # Reference: https://ethz.ch/content/dam/ethz/special-interest/mavt/robotics-n-intelligent-systems/rsl-dam/documents/RobotDynamics2018/RD_HS2018script.pdf
+    """计算目标Franka指尖姿态与当前姿态之间的任务空间误差。"""
+    # 参考: https://ethz.ch/content/dam/ethz/special-interest/mavt/robotics-n-intelligent-systems/rsl-dam/documents/RobotDynamics2018/RD_HS2018script.pdf
 
     # Compute pos error
     pos_error = ctrl_target_fingertip_midpoint_pos - fingertip_midpoint_pos
@@ -136,10 +136,10 @@ def get_pose_error(
 
 
 def _get_delta_dof_pos(delta_pose, ik_method, jacobian, device):
-    """Get delta Franka DOF position from delta pose using specified IK method."""
-    # References:
+    """使用指定的逆运动学方法从姿态变化获取Franka自由度位置变化。"""
+    # 参考资料:
     # 1) https://www.cs.cmu.edu/~15464-s13/lectures/lecture6/iksurvey.pdf
-    # 2) https://ethz.ch/content/dam/ethz/special-interest/mavt/robotics-n-intelligent-systems/rsl-dam/documents/RobotDynamics2018/RD_HS2018script.pdf (p. 47)
+    # 2) https://ethz.ch/content/dam/ethz/special-interest/mavt/robotics-n-intelligent-systems/rsl-dam/documents/RobotDynamics2018/RD_HS2018script.pdf (第47页)
 
     if ik_method == "pinv":  # Jacobian pseudoinverse
         k_val = 1.0
@@ -178,7 +178,7 @@ def _get_delta_dof_pos(delta_pose, ik_method, jacobian, device):
 def _apply_task_space_gains(
     delta_fingertip_pose, fingertip_midpoint_linvel, fingertip_midpoint_angvel, task_prop_gains, task_deriv_gains
 ):
-    """Interpret PD gains as task-space gains. Apply to task-space error."""
+    """将PD增益解释为任务空间增益。应用于任务空间误差。"""
 
     task_wrench = torch.zeros_like(delta_fingertip_pose)
 

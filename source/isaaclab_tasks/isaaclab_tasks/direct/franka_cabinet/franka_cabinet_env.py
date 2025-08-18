@@ -25,14 +25,14 @@ from isaaclab.utils.math import sample_uniform
 
 @configclass
 class FrankaCabinetEnvCfg(DirectRLEnvCfg):
-    # env
-    episode_length_s = 8.3333  # 500 timesteps
+    # 环境配置
+    episode_length_s = 8.3333  # 500个时间步
     decimation = 2
     action_space = 9
     observation_space = 23
     state_space = 0
 
-    # simulation
+    # 仿真配置
     sim: SimulationCfg = SimulationCfg(
         dt=1 / 120,
         render_interval=decimation,
@@ -45,12 +45,12 @@ class FrankaCabinetEnvCfg(DirectRLEnvCfg):
         ),
     )
 
-    # scene
+    # 场景配置
     scene: InteractiveSceneCfg = InteractiveSceneCfg(
         num_envs=4096, env_spacing=3.0, replicate_physics=True, clone_in_fabric=True
     )
 
-    # robot
+    # 机器人配置
     robot = ArticulationCfg(
         prim_path="/World/envs/env_.*/Robot",
         spawn=sim_utils.UsdFileCfg(
@@ -100,7 +100,7 @@ class FrankaCabinetEnvCfg(DirectRLEnvCfg):
         },
     )
 
-    # cabinet
+    # 柜子配置
     cabinet = ArticulationCfg(
         prim_path="/World/envs/env_.*/Cabinet",
         spawn=sim_utils.UsdFileCfg(
@@ -133,7 +133,7 @@ class FrankaCabinetEnvCfg(DirectRLEnvCfg):
         },
     )
 
-    # ground plane
+    # 地面配置
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="plane",
@@ -150,7 +150,7 @@ class FrankaCabinetEnvCfg(DirectRLEnvCfg):
     action_scale = 7.5
     dof_velocity_scale = 0.1
 
-    # reward scales
+    # 奖励缩放因子
     dist_reward_scale = 1.5
     rot_reward_scale = 1.5
     open_reward_scale = 10.0
@@ -159,14 +159,14 @@ class FrankaCabinetEnvCfg(DirectRLEnvCfg):
 
 
 class FrankaCabinetEnv(DirectRLEnv):
-    # pre-physics step calls
-    #   |-- _pre_physics_step(action)
-    #   |-- _apply_action()
-    # post-physics step calls
-    #   |-- _get_dones()
-    #   |-- _get_rewards()
-    #   |-- _reset_idx(env_ids)
-    #   |-- _get_observations()
+    # 物理步骤前调用的方法
+    #   |-- _pre_physics_step(action) 预处理物理步骤
+    #   |-- _apply_action() 应用动作
+    # 物理步骤后调用的方法
+    #   |-- _get_dones() 获取终止状态
+    #   |-- _get_rewards() 获取奖励
+    #   |-- _reset_idx(env_ids) 重置环境
+    #   |-- _get_observations() 获取观测值
 
     cfg: FrankaCabinetEnvCfg
 
@@ -174,7 +174,7 @@ class FrankaCabinetEnv(DirectRLEnv):
         super().__init__(cfg, render_mode, **kwargs)
 
         def get_env_local_pose(env_pos: torch.Tensor, xformable: UsdGeom.Xformable, device: torch.device):
-            """Compute pose in env-local coordinates"""
+            """计算在环境局部坐标系中的位姿"""
             world_transform = xformable.ComputeLocalToWorldTransform(0)
             world_pos = world_transform.ExtractTranslation()
             world_quat = world_transform.ExtractRotationQuat()
@@ -191,7 +191,7 @@ class FrankaCabinetEnv(DirectRLEnv):
 
         self.dt = self.cfg.sim.dt * self.cfg.decimation
 
-        # create auxiliary variables for computing applied action, observations and rewards
+        # 创建辅助变量用于计算应用的动作、观测值和奖励
         self.robot_dof_lower_limits = self._robot.data.soft_joint_pos_limits[0, :, 0].to(device=self.device)
         self.robot_dof_upper_limits = self._robot.data.soft_joint_pos_limits[0, :, 1].to(device=self.device)
 
@@ -267,13 +267,13 @@ class FrankaCabinetEnv(DirectRLEnv):
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
         self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
 
-        # clone and replicate
+        # 克隆和复制环境
         self.scene.clone_environments(copy_from_source=False)
-        # we need to explicitly filter collisions for CPU simulation
+        # 对于CPU仿真，我们需要显式过滤碰撞
         if self.device == "cpu":
             self.scene.filter_collisions(global_prim_paths=[self.cfg.terrain.prim_path])
 
-        # add lights
+        # 添加灯光
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
 
@@ -287,15 +287,17 @@ class FrankaCabinetEnv(DirectRLEnv):
     def _apply_action(self):
         self._robot.set_joint_position_target(self.robot_dof_targets)
 
-    # post-physics step calls
+    # 物理步骤后调用的方法
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
+        # 当抽屉打开角度超过0.39时认为任务完成（终止）
         terminated = self._cabinet.data.joint_pos[:, 3] > 0.39
+        # 当达到最大回合长度时认为回合截断
         truncated = self.episode_length_buf >= self.max_episode_length - 1
         return terminated, truncated
 
     def _get_rewards(self) -> torch.Tensor:
-        # Refresh the intermediate values after the physics steps
+        # 在物理步骤后刷新中间值
         self._compute_intermediate_values()
         robot_left_finger_pos = self._robot.data.body_pos_w[:, self.left_finger_link_idx]
         robot_right_finger_pos = self._robot.data.body_pos_w[:, self.right_finger_link_idx]
@@ -324,7 +326,7 @@ class FrankaCabinetEnv(DirectRLEnv):
 
     def _reset_idx(self, env_ids: torch.Tensor | None):
         super()._reset_idx(env_ids)
-        # robot state
+        # 重置机器人状态
         joint_pos = self._robot.data.default_joint_pos[env_ids] + sample_uniform(
             -0.125,
             0.125,
@@ -336,20 +338,22 @@ class FrankaCabinetEnv(DirectRLEnv):
         self._robot.set_joint_position_target(joint_pos, env_ids=env_ids)
         self._robot.write_joint_state_to_sim(joint_pos, joint_vel, env_ids=env_ids)
 
-        # cabinet state
+        # 重置柜子状态
         zeros = torch.zeros((len(env_ids), self._cabinet.num_joints), device=self.device)
         self._cabinet.write_joint_state_to_sim(zeros, zeros, env_ids=env_ids)
 
-        # Need to refresh the intermediate values so that _get_observations() can use the latest values
+        # 需要刷新中间值，以便_get_observations()可以使用最新值
         self._compute_intermediate_values(env_ids)
 
     def _get_observations(self) -> dict:
+        # 对关节位置进行缩放，使其在[-1, 1]范围内
         dof_pos_scaled = (
             2.0
             * (self._robot.data.joint_pos - self.robot_dof_lower_limits)
             / (self.robot_dof_upper_limits - self.robot_dof_lower_limits)
             - 1.0
         )
+        # 计算从机器人抓取点到抽屉抓取点的目标向量
         to_target = self.drawer_grasp_pos - self.robot_grasp_pos
 
         obs = torch.cat(
@@ -364,12 +368,14 @@ class FrankaCabinetEnv(DirectRLEnv):
         )
         return {"policy": torch.clamp(obs, -5.0, 5.0)}
 
-    # auxiliary methods
+    # 辅助方法
 
     def _compute_intermediate_values(self, env_ids: torch.Tensor | None = None):
+        # 如果没有指定环境ID，则计算所有环境的值
         if env_ids is None:
             env_ids = self._robot._ALL_INDICES
 
+        # 获取手部位姿和抽屉位姿
         hand_pos = self._robot.data.body_pos_w[env_ids, self.hand_link_idx]
         hand_rot = self._robot.data.body_quat_w[env_ids, self.hand_link_idx]
         drawer_pos = self._cabinet.data.body_pos_w[env_ids, self.drawer_link_idx]
@@ -412,39 +418,44 @@ class FrankaCabinetEnv(DirectRLEnv):
         finger_reward_scale,
         joint_positions,
     ):
-        # distance from hand to the drawer
+        # 计算手部位姿到抽屉抓取点的距离奖励
         d = torch.norm(franka_grasp_pos - drawer_grasp_pos, p=2, dim=-1)
         dist_reward = 1.0 / (1.0 + d**2)
         dist_reward *= dist_reward
+        # 当距离小于0.02时，距离奖励翻倍
         dist_reward = torch.where(d <= 0.02, dist_reward * 2, dist_reward)
 
+        # 计算抓取方向的对齐奖励
         axis1 = tf_vector(franka_grasp_rot, gripper_forward_axis)
         axis2 = tf_vector(drawer_grasp_rot, drawer_inward_axis)
         axis3 = tf_vector(franka_grasp_rot, gripper_up_axis)
         axis4 = tf_vector(drawer_grasp_rot, drawer_up_axis)
 
+        # 计算前向轴对齐度
         dot1 = (
             torch.bmm(axis1.view(num_envs, 1, 3), axis2.view(num_envs, 3, 1)).squeeze(-1).squeeze(-1)
-        )  # alignment of forward axis for gripper
+        )
+        # 计算上向轴对齐度
         dot2 = (
             torch.bmm(axis3.view(num_envs, 1, 3), axis4.view(num_envs, 3, 1)).squeeze(-1).squeeze(-1)
-        )  # alignment of up axis for gripper
-        # reward for matching the orientation of the hand to the drawer (fingers wrapped)
+        )
+        # 手部与抽屉方向匹配的奖励（手指环绕）
         rot_reward = 0.5 * (torch.sign(dot1) * dot1**2 + torch.sign(dot2) * dot2**2)
 
-        # regularization on the actions (summed for each environment)
+        # 动作正则化惩罚（每个环境的惩罚值求和）
         action_penalty = torch.sum(actions**2, dim=-1)
 
-        # how far the cabinet has been opened out
+        # 抽屉打开程度的奖励
         open_reward = cabinet_dof_pos[:, 3]  # drawer_top_joint
 
-        # penalty for distance of each finger from the drawer handle
+        # 手指与抽屉把手距离的惩罚
         lfinger_dist = franka_lfinger_pos[:, 2] - drawer_grasp_pos[:, 2]
         rfinger_dist = drawer_grasp_pos[:, 2] - franka_rfinger_pos[:, 2]
         finger_dist_penalty = torch.zeros_like(lfinger_dist)
         finger_dist_penalty += torch.where(lfinger_dist < 0, lfinger_dist, torch.zeros_like(lfinger_dist))
         finger_dist_penalty += torch.where(rfinger_dist < 0, rfinger_dist, torch.zeros_like(rfinger_dist))
 
+        # 综合奖励计算
         rewards = (
             dist_reward_scale * dist_reward
             + rot_reward_scale * rot_reward
@@ -453,6 +464,7 @@ class FrankaCabinetEnv(DirectRLEnv):
             - action_penalty_scale * action_penalty
         )
 
+        # 日志记录各种奖励分量的平均值
         self.extras["log"] = {
             "dist_reward": (dist_reward_scale * dist_reward).mean(),
             "rot_reward": (rot_reward_scale * rot_reward).mean(),
@@ -463,7 +475,7 @@ class FrankaCabinetEnv(DirectRLEnv):
             "finger_dist_penalty": (finger_reward_scale * finger_dist_penalty).mean(),
         }
 
-        # bonus for opening drawer properly
+        # 抽屉正确打开的额外奖励
         rewards = torch.where(cabinet_dof_pos[:, 3] > 0.01, rewards + 0.25, rewards)
         rewards = torch.where(cabinet_dof_pos[:, 3] > 0.2, rewards + 0.25, rewards)
         rewards = torch.where(cabinet_dof_pos[:, 3] > 0.35, rewards + 0.25, rewards)
@@ -481,9 +493,11 @@ class FrankaCabinetEnv(DirectRLEnv):
         drawer_local_grasp_rot,
         drawer_local_grasp_pos,
     ):
+        # 计算Franka机器人抓取点的全局位姿
         global_franka_rot, global_franka_pos = tf_combine(
             hand_rot, hand_pos, franka_local_grasp_rot, franka_local_grasp_pos
         )
+        # 计算抽屉抓取点的全局位姿
         global_drawer_rot, global_drawer_pos = tf_combine(
             drawer_rot, drawer_pos, drawer_local_grasp_rot, drawer_local_grasp_pos
         )

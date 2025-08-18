@@ -3,21 +3,25 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+"""
+该脚本演示了如何向 Isaac Lab 环境中添加自定义机器人。
+"""
+
 import argparse
 
 from isaaclab.app import AppLauncher
 
-# add argparse arguments
+# 添加 argparse 参数
 parser = argparse.ArgumentParser(
-    description="This script demonstrates adding a custom robot to an Isaac Lab environment."
+    description="该脚本演示了如何向 Isaac Lab 环境中添加自定义机器人。"
 )
-parser.add_argument("--num_envs", type=int, default=1, help="Number of environments to spawn.")
-# append AppLauncher cli args
+parser.add_argument("--num_envs", type=int, default=1, help="要生成的环境数量。")
+# 添加 AppLauncher 命令行参数
 AppLauncher.add_app_launcher_args(parser)
-# parse the arguments
+# 解析参数
 args_cli = parser.parse_args()
 
-# launch omniverse app
+# 启动 Omniverse 应用
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
@@ -31,11 +35,13 @@ from isaaclab.assets.articulation import ArticulationCfg
 from isaaclab.scene import InteractiveScene, InteractiveSceneCfg
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
+# JETBOT 机器人配置
 JETBOT_CONFIG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Robots/NVIDIA/Jetbot/jetbot.usd"),
     actuators={"wheel_acts": ImplicitActuatorCfg(joint_names_expr=[".*"], damping=None, stiffness=None)},
 )
 
+# DOFBOT 机器人配置
 DOFBOT_CONFIG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
         usd_path=f"{ISAAC_NUCLEUS_DIR}/Robots/Yahboom/Dofbot/dofbot.usd",
@@ -83,44 +89,50 @@ DOFBOT_CONFIG = ArticulationCfg(
 
 
 class NewRobotsSceneCfg(InteractiveSceneCfg):
-    """Designs the scene."""
+    """设计场景。"""
 
-    # Ground-plane
+    # 地面
     ground = AssetBaseCfg(prim_path="/World/defaultGroundPlane", spawn=sim_utils.GroundPlaneCfg())
 
-    # lights
+    # 灯光
     dome_light = AssetBaseCfg(
         prim_path="/World/Light", spawn=sim_utils.DomeLightCfg(intensity=3000.0, color=(0.75, 0.75, 0.75))
     )
 
-    # robot
+    # 机器人
     Jetbot = JETBOT_CONFIG.replace(prim_path="{ENV_REGEX_NS}/Jetbot")
     Dofbot = DOFBOT_CONFIG.replace(prim_path="{ENV_REGEX_NS}/Dofbot")
 
 
 def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
+    """运行模拟器。
+    
+    Args:
+        sim: 模拟上下文对象
+        scene: 交互场景对象
+    """
     sim_dt = sim.get_physics_dt()
     sim_time = 0.0
     count = 0
 
     while simulation_app.is_running():
-        # reset
+        # 重置
         if count % 500 == 0:
-            # reset counters
+            # 重置计数器
             count = 0
-            # reset the scene entities to their initial positions offset by the environment origins
+            # 将场景实体重置到其初始位置，并根据环境原点进行偏移
             root_jetbot_state = scene["Jetbot"].data.default_root_state.clone()
             root_jetbot_state[:, :3] += scene.env_origins
             root_dofbot_state = scene["Dofbot"].data.default_root_state.clone()
             root_dofbot_state[:, :3] += scene.env_origins
 
-            # copy the default root state to the sim for the jetbot's orientation and velocity
+            # 将默认根状态复制到模拟器中，用于 Jetbot 的方向和速度
             scene["Jetbot"].write_root_pose_to_sim(root_jetbot_state[:, :7])
             scene["Jetbot"].write_root_velocity_to_sim(root_jetbot_state[:, 7:])
             scene["Dofbot"].write_root_pose_to_sim(root_dofbot_state[:, :7])
             scene["Dofbot"].write_root_velocity_to_sim(root_dofbot_state[:, 7:])
 
-            # copy the default joint states to the sim
+            # 将默认关节状态复制到模拟器中
             joint_pos, joint_vel = (
                 scene["Jetbot"].data.default_joint_pos.clone(),
                 scene["Jetbot"].data.default_joint_vel.clone(),
@@ -131,22 +143,23 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
                 scene["Dofbot"].data.default_joint_vel.clone(),
             )
             scene["Dofbot"].write_joint_state_to_sim(joint_pos, joint_vel)
-            # clear internal buffers
+            # 清除内部缓冲区
             scene.reset()
-            print("[INFO]: Resetting Jetbot and Dofbot state...")
+            print("[INFO]: 重置 Jetbot 和 Dofbot 状态...")
 
-        # drive around
+        # 驱动机器人移动
         if count % 100 < 75:
-            # Drive straight by setting equal wheel velocities
+            # 通过设置相等的轮子速度使机器人直行
             action = torch.Tensor([[10.0, 10.0]])
         else:
-            # Turn by applying different velocities
+            # 通过应用不同的速度使机器人转弯
             action = torch.Tensor([[5.0, -5.0]])
 
         scene["Jetbot"].set_joint_velocity_target(action)
 
-        # wave
+        # 挥手动作
         wave_action = scene["Dofbot"].data.default_joint_pos
+        # 使用正弦波生成周期性的关节位置，使机械臂摆动
         wave_action[:, 0:4] = 0.25 * np.sin(2 * np.pi * 0.5 * sim_time)
         scene["Dofbot"].set_joint_position_target(wave_action)
 
@@ -158,19 +171,19 @@ def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
 
 
 def main():
-    """Main function."""
-    # Initialize the simulation context
+    """主函数。"""
+    # 初始化模拟上下文
     sim_cfg = sim_utils.SimulationCfg(device=args_cli.device)
     sim = sim_utils.SimulationContext(sim_cfg)
     sim.set_camera_view([3.5, 0.0, 3.2], [0.0, 0.0, 0.5])
-    # Design scene
+    # 设计场景
     scene_cfg = NewRobotsSceneCfg(args_cli.num_envs, env_spacing=2.0)
     scene = InteractiveScene(scene_cfg)
-    # Play the simulator
+    # 启动模拟器
     sim.reset()
-    # Now we are ready!
-    print("[INFO]: Setup complete...")
-    # Run the simulator
+    # 现在我们准备好了！
+    print("[INFO]: 设置完成...")
+    # 运行模拟器
     run_simulator(sim, scene)
 
 

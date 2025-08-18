@@ -49,19 +49,26 @@ class DisassemblyEnv(DirectRLEnv):
         self._init_log_data_per_assembly()
 
     def _set_body_inertias(self):
-        """Note: this is to account for the asset_options.armature parameter in IGE."""
+        """设置身体惯性矩，用于补偿IGE中的asset_options.armature参数"""
+        # 获取当前惯性矩
         inertias = self._robot.root_physx_view.get_inertias()
+        # 创建偏移量张量
         offset = torch.zeros_like(inertias)
+        # 在对角线元素上添加偏移量
         offset[:, :, [0, 4, 8]] += 0.01
+        # 计算新的惯性矩
         new_inertias = inertias + offset
+        # 设置新的惯性矩
         self._robot.root_physx_view.set_inertias(new_inertias, torch.arange(self.num_envs))
 
     def _set_default_dynamics_parameters(self):
-        """Set parameters defining dynamic interactions."""
+        """设置定义动力学交互的参数"""
+        # 设置默认增益参数
         self.default_gains = torch.tensor(self.cfg.ctrl.default_task_prop_gains, device=self.device).repeat(
             (self.num_envs, 1)
         )
 
+        # 设置位置和旋转阈值
         self.pos_threshold = torch.tensor(self.cfg.ctrl.pos_action_threshold, device=self.device).repeat(
             (self.num_envs, 1)
         )
@@ -69,97 +76,131 @@ class DisassemblyEnv(DirectRLEnv):
             (self.num_envs, 1)
         )
 
-        # Set masses and frictions.
+        # 设置质量和摩擦系数
         self._set_friction(self._held_asset, self.cfg_task.held_asset_cfg.friction)
         self._set_friction(self._fixed_asset, self.cfg_task.fixed_asset_cfg.friction)
         self._set_friction(self._robot, self.cfg_task.robot_cfg.friction)
 
     def _set_friction(self, asset, value):
-        """Update material properties for a given asset."""
+        """更新给定资产的材料属性"""
+        # 获取材料属性
         materials = asset.root_physx_view.get_material_properties()
-        materials[..., 0] = value  # Static friction.
-        materials[..., 1] = value  # Dynamic friction.
+        # 设置静摩擦系数
+        materials[..., 0] = value
+        # 设置动摩擦系数
+        materials[..., 1] = value
+        # 获取环境ID
         env_ids = torch.arange(self.scene.num_envs, device="cpu")
+        # 设置材料属性
         asset.root_physx_view.set_material_properties(materials, env_ids)
 
     def _init_tensors(self):
-        """Initialize tensors once."""
+        """初始化张量"""
+        # 初始化单位四元数
         self.identity_quat = (
             torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).unsqueeze(0).repeat(self.num_envs, 1)
         )
 
-        # Control targets.
+        # 控制目标张量
+        # 关节位置控制目标
         self.ctrl_target_joint_pos = torch.zeros((self.num_envs, self._robot.num_joints), device=self.device)
+        # 指尖中点位置控制目标
         self.ctrl_target_fingertip_midpoint_pos = torch.zeros((self.num_envs, 3), device=self.device)
+        # 指尖中点四元数控制目标
         self.ctrl_target_fingertip_midpoint_quat = torch.zeros((self.num_envs, 4), device=self.device)
 
-        # Fixed asset.
+        # 固定资产相关张量
+        # 固定位置动作框架
         self.fixed_pos_action_frame = torch.zeros((self.num_envs, 3), device=self.device)
+        # 固定位置观察框架
         self.fixed_pos_obs_frame = torch.zeros((self.num_envs, 3), device=self.device)
+        # 初始化固定位置观察噪声
         self.init_fixed_pos_obs_noise = torch.zeros((self.num_envs, 3), device=self.device)
 
-        # Held asset
+        # 持有资产相关张量
+        # 持有资产基座偏移量
         held_base_x_offset = 0.0
         held_base_z_offset = 0.0
 
+        # 持有资产局部位置和四元数
         self.held_base_pos_local = torch.tensor([0.0, 0.0, 0.0], device=self.device).repeat((self.num_envs, 1))
         self.held_base_pos_local[:, 0] = held_base_x_offset
         self.held_base_pos_local[:, 2] = held_base_z_offset
         self.held_base_quat_local = self.identity_quat.clone().detach()
 
+        # 持有资产世界坐标位置和四元数
         self.held_base_pos = torch.zeros_like(self.held_base_pos_local)
         self.held_base_quat = self.identity_quat.clone().detach()
 
+        # 加载装配信息（抓取姿态和拆卸距离）
         self.plug_grasps, self.disassembly_dists = self._load_assembly_info()
 
-        # Load grasp pose from json files given assembly ID
-        # Grasp pose tensors
+        # 根据装配ID从JSON文件加载抓取姿态
+        # 抓取姿态张量
+        # 手掌到手指中心的距离向量
         self.palm_to_finger_center = (
             torch.tensor([0.0, 0.0, -self.cfg_task.palm_to_finger_dist], device=self.device)
             .unsqueeze(0)
             .repeat(self.num_envs, 1)
         )
+        # 机器人到夹爪的四元数变换
         self.robot_to_gripper_quat = (
             torch.tensor([0.0, 1.0, 0.0, 0.0], device=self.device).unsqueeze(0).repeat(self.num_envs, 1)
         )
+        # 插头抓取位置（局部坐标）
         self.plug_grasp_pos_local = self.plug_grasps[: self.num_envs, :3]
+        # 插头抓取四元数（局部坐标），并重新排列
         self.plug_grasp_quat_local = torch.roll(self.plug_grasps[: self.num_envs, 3:], -1, 1)
 
-        # Computer body indices.
+        # 计算身体索引
         self.left_finger_body_idx = self._robot.body_names.index("panda_leftfinger")
         self.right_finger_body_idx = self._robot.body_names.index("panda_rightfinger")
         self.fingertip_body_idx = self._robot.body_names.index("panda_fingertip_centered")
 
-        # Tensors for finite-differencing.
-        self.last_update_timestamp = 0.0  # Note: This is for finite differencing body velocities.
+        # 用于有限差分的张量
+        # 上次更新时间戳，用于有限差分计算身体速度
+        self.last_update_timestamp = 0.0
+        # 上一时刻指尖位置
         self.prev_fingertip_pos = torch.zeros((self.num_envs, 3), device=self.device)
+        # 上一时刻指尖四元数
         self.prev_fingertip_quat = self.identity_quat.clone()
+        # 上一时刻关节位置
         self.prev_joint_pos = torch.zeros((self.num_envs, 7), device=self.device)
 
-        # Keypoint tensors.
+        # 关键点张量
+        # 目标持有资产基座位置和四元数
         self.target_held_base_pos = torch.zeros((self.num_envs, 3), device=self.device)
         self.target_held_base_quat = self.identity_quat.clone().detach()
 
-        # Used to compute target poses.
+        # 用于计算目标姿态的张量
+        # 固定成功位置（局部坐标）
         self.fixed_success_pos_local = torch.zeros((self.num_envs, 3), device=self.device)
         self.fixed_success_pos_local[:, 2] = 0.0
 
+        # 回合成功状态和时间
         self.ep_succeeded = torch.zeros((self.num_envs,), dtype=torch.long, device=self.device)
         self.ep_success_times = torch.zeros((self.num_envs,), dtype=torch.long, device=self.device)
 
     def _load_assembly_info(self):
-        """Load grasp pose and disassembly distance for plugs in each environment."""
+        """为每个环境加载插头的抓取姿态和拆卸距离"""
 
+        # 获取插头抓取点的JSON文件路径
         retrieve_file_path(self.cfg_task.plug_grasp_json, download_dir="./")
+        # 读取插头抓取点数据
         with open(os.path.basename(self.cfg_task.plug_grasp_json)) as f:
             plug_grasp_dict = json.load(f)
+        # 根据装配ID获取抓取点数据，并复制到所有环境
         plug_grasps = [plug_grasp_dict[f"asset_{self.cfg_task.assembly_id}"] for i in range(self.num_envs)]
 
+        # 获取拆卸距离的JSON文件路径
         retrieve_file_path(self.cfg_task.disassembly_dist_json, download_dir="./")
+        # 读取拆卸距离数据
         with open(os.path.basename(self.cfg_task.disassembly_dist_json)) as f:
             disassembly_dist_dict = json.load(f)
+        # 根据装配ID获取拆卸距离数据，并复制到所有环境
         disassembly_dists = [disassembly_dist_dict[f"asset_{self.cfg_task.assembly_id}"] for i in range(self.num_envs)]
 
+        # 将数据转换为张量并移动到指定设备
         return torch.as_tensor(plug_grasps).to(self.device), torch.as_tensor(disassembly_dists).to(self.device)
 
     def _setup_scene(self):
@@ -192,29 +233,41 @@ class DisassemblyEnv(DirectRLEnv):
         light_cfg.func("/World/Light", light_cfg)
 
     def _compute_intermediate_values(self, dt):
-        """Get values computed from raw tensors. This includes adding noise."""
-        # TODO: A lot of these can probably only be set once?
+        """从原始张量计算中间值，包括添加噪声"""
+        # TODO: 很多值可能只需要设置一次？
+        
+        # 计算固定资产的位置和四元数（相对于环境原点）
         self.fixed_pos = self._fixed_asset.data.root_pos_w - self.scene.env_origins
         self.fixed_quat = self._fixed_asset.data.root_quat_w
 
+        # 计算持有资产的位置和四元数（相对于环境原点）
         self.held_pos = self._held_asset.data.root_pos_w - self.scene.env_origins
         self.held_quat = self._held_asset.data.root_quat_w
 
+        # 计算指尖中点的位置、四元数和速度（相对于环境原点）
         self.fingertip_midpoint_pos = self._robot.data.body_pos_w[:, self.fingertip_body_idx] - self.scene.env_origins
         self.fingertip_midpoint_quat = self._robot.data.body_quat_w[:, self.fingertip_body_idx]
         self.fingertip_midpoint_linvel = self._robot.data.body_lin_vel_w[:, self.fingertip_body_idx]
         self.fingertip_midpoint_angvel = self._robot.data.body_ang_vel_w[:, self.fingertip_body_idx]
 
+        # 获取雅可比矩阵
         jacobians = self._robot.root_physx_view.get_jacobians()
 
+        # 计算左右手指的雅可比矩阵以及指尖中点的雅可比矩阵
         self.left_finger_jacobian = jacobians[:, self.left_finger_body_idx - 1, 0:6, 0:7]
         self.right_finger_jacobian = jacobians[:, self.right_finger_body_idx - 1, 0:6, 0:7]
+        # 指尖中点雅可比矩阵为左右手指雅可比矩阵的平均值
         self.fingertip_midpoint_jacobian = (self.left_finger_jacobian + self.right_finger_jacobian) * 0.5
+        
+        # 获取机械臂质量矩阵
         self.arm_mass_matrix = self._robot.root_physx_view.get_generalized_mass_matrices()[:, 0:7, 0:7]
+        
+        # 克隆关节位置和速度
         self.joint_pos = self._robot.data.joint_pos.clone()
         self.joint_vel = self._robot.data.joint_vel.clone()
 
-        # Compute pose of gripper goal and top of socket in socket frame
+        # 计算夹爪目标在插座坐标系中的姿态
+        # 首先将插头抓取姿态转换到固定资产坐标系
         self.gripper_goal_quat, self.gripper_goal_pos = torch_utils.tf_combine(
             self.fixed_quat,
             self.fixed_pos,
@@ -222,6 +275,7 @@ class DisassemblyEnv(DirectRLEnv):
             self.plug_grasp_pos_local,
         )
 
+        # 然后将夹爪姿态转换到机器人坐标系
         self.gripper_goal_quat, self.gripper_goal_pos = torch_utils.tf_combine(
             self.gripper_goal_quat,
             self.gripper_goal_pos,
@@ -229,31 +283,39 @@ class DisassemblyEnv(DirectRLEnv):
             self.palm_to_finger_center,
         )
 
-        # Finite-differencing results in more reliable velocity estimates.
+        # 使用有限差分法计算更可靠的线速度估计
         self.ee_linvel_fd = (self.fingertip_midpoint_pos - self.prev_fingertip_pos) / dt
         self.prev_fingertip_pos = self.fingertip_midpoint_pos.clone()
 
-        # Add state differences if velocity isn't being added.
+        # 如果没有添加速度，则计算状态差异
+        # 计算旋转差异四元数
         rot_diff_quat = torch_utils.quat_mul(
             self.fingertip_midpoint_quat, torch_utils.quat_conjugate(self.prev_fingertip_quat)
         )
+        # 确保旋转差异四元数的实部为正
         rot_diff_quat *= torch.sign(rot_diff_quat[:, 0]).unsqueeze(-1)
+        # 从四元数差异计算轴角表示
         rot_diff_aa = axis_angle_from_quat(rot_diff_quat)
+        # 计算角速度
         self.ee_angvel_fd = rot_diff_aa / dt
         self.prev_fingertip_quat = self.fingertip_midpoint_quat.clone()
 
+        # 计算关节速度的有限差分
         joint_diff = self.joint_pos[:, 0:7] - self.prev_joint_pos
         self.joint_vel_fd = joint_diff / dt
         self.prev_joint_pos = self.joint_pos[:, 0:7].clone()
 
-        # Keypoint tensors.
+        # 关键点张量计算
+        # 计算持有资产基座的姿态
         self.held_base_quat[:], self.held_base_pos[:] = torch_utils.tf_combine(
             self.held_quat, self.held_pos, self.held_base_quat_local, self.held_base_pos_local
         )
+        # 计算目标持有资产基座的姿态
         self.target_held_base_quat[:], self.target_held_base_pos[:] = torch_utils.tf_combine(
             self.fixed_quat, self.fixed_pos, self.identity_quat, self.fixed_success_pos_local
         )
 
+        # 更新最后更新时间戳
         self.last_update_timestamp = self._robot._data._sim_timestamp
 
     def _get_observations(self):
@@ -389,13 +451,17 @@ class DisassemblyEnv(DirectRLEnv):
         self.generate_ctrl_signals()
 
     def _set_gains(self, prop_gains, rot_deriv_scale=1.0):
-        """Set robot gains using critical damping."""
+        """使用临界阻尼设置机器人增益"""
+        # 设置任务比例增益
         self.task_prop_gains = prop_gains
+        # 计算任务微分增益（临界阻尼）
         self.task_deriv_gains = 2 * torch.sqrt(prop_gains)
+        # 对旋转微分增益进行缩放
         self.task_deriv_gains[:, 3:6] /= rot_deriv_scale
 
     def generate_ctrl_signals(self):
-        """Get Jacobian. Set Franka DOF position targets (fingers) or DOF torques (arm)."""
+        """获取雅可比矩阵，设置Franka自由度位置目标（手指）或自由度力矩（机械臂）"""
+        # 计算关节力矩和施加的 wrench
         self.joint_torque, self.applied_wrench = fc.compute_dof_torque(
             cfg=self.cfg,
             dof_pos=self.joint_pos,
@@ -413,10 +479,11 @@ class DisassemblyEnv(DirectRLEnv):
             device=self.device,
         )
 
-        # set target for gripper joints to use GYM's PD controller
+        # 为夹爪关节设置目标，使用GYM的PD控制器
         self.ctrl_target_joint_pos[:, 7:9] = self.ctrl_target_gripper_dof_pos
         self.joint_torque[:, 7:9] = 0.0
 
+        # 设置机器人关节位置目标和关节力矩目标
         self._robot.set_joint_position_target(self.ctrl_target_joint_pos)
         self._robot.set_joint_effort_target(self.joint_torque)
 
@@ -487,8 +554,10 @@ class DisassemblyEnv(DirectRLEnv):
         self._fixed_asset.reset()
 
     def _move_gripper_to_grasp_pose(self, env_ids):
-        """Define grasp pose for plug and move gripper to pose."""
+        """定义插头的抓取姿态并将夹爪移动到该姿态"""
 
+        # 计算夹爪目标姿态
+        # 首先将插头抓取姿态转换到持有资产坐标系
         gripper_goal_quat, gripper_goal_pos = torch_utils.tf_combine(
             self.held_quat,
             self.held_pos,
@@ -496,6 +565,7 @@ class DisassemblyEnv(DirectRLEnv):
             self.plug_grasp_pos_local,
         )
 
+        # 然后将夹爪姿态转换到机器人坐标系
         gripper_goal_quat, gripper_goal_pos = torch_utils.tf_combine(
             gripper_goal_quat,
             gripper_goal_pos,
@@ -503,20 +573,24 @@ class DisassemblyEnv(DirectRLEnv):
             self.palm_to_finger_center,
         )
 
-        # Set target_pos
+        # 设置目标位置
         self.ctrl_target_fingertip_midpoint_pos = gripper_goal_pos.clone()
 
-        # Set target rot
+        # 设置目标旋转
         self.ctrl_target_fingertip_midpoint_quat = gripper_goal_quat.clone()
 
+        # 使用位置逆运动学设置关节位置
         self.set_pos_inverse_kinematics(env_ids)
+        # 不执行动作的情况下步进仿真
         self.step_sim_no_action()
 
     def set_pos_inverse_kinematics(self, env_ids):
-        """Set robot joint position using DLS IK."""
+        """使用DLS逆运动学设置机器人关节位置"""
+        # 初始化逆运动学时间
         ik_time = 0.0
+        # 在0.5秒内持续进行逆运动学计算
         while ik_time < 0.50:
-            # Compute error to target.
+            # 计算到目标的误差
             pos_error, axis_angle_error = fc.get_pose_error(
                 fingertip_midpoint_pos=self.fingertip_midpoint_pos[env_ids],
                 fingertip_midpoint_quat=self.fingertip_midpoint_quat[env_ids],
@@ -526,28 +600,34 @@ class DisassemblyEnv(DirectRLEnv):
                 rot_error_type="axis_angle",
             )
 
+            # 将位置误差和轴角误差合并为手部位姿误差
             delta_hand_pose = torch.cat((pos_error, axis_angle_error), dim=-1)
 
-            # Solve DLS problem.
+            # 解决DLS（阻尼最小二乘）问题
             delta_dof_pos = fc._get_delta_dof_pos(
                 delta_pose=delta_hand_pose,
                 ik_method="dls",
                 jacobian=self.fingertip_midpoint_jacobian[env_ids],
                 device=self.device,
             )
+            # 更新关节位置
             self.joint_pos[env_ids, 0:7] += delta_dof_pos[:, 0:7]
+            # 将关节速度置零
             self.joint_vel[env_ids, :] = torch.zeros_like(self.joint_pos[env_ids,])
 
+            # 更新关节位置目标
             self.ctrl_target_joint_pos[env_ids, 0:7] = self.joint_pos[env_ids, 0:7]
-            # Update dof state.
+            # 更新自由度状态
             self._robot.write_joint_state_to_sim(self.joint_pos, self.joint_vel)
             self._robot.reset()
             self._robot.set_joint_position_target(self.ctrl_target_joint_pos)
 
-            # Simulate and update tensors.
+            # 仿真并更新张量
             self.step_sim_no_action()
+            # 更新逆运动学时间
             ik_time += self.physics_dt
 
+        # 返回位置误差和轴角误差
         return pos_error, axis_angle_error
 
     def _move_gripper_to_eef_pose(self, env_ids, goal_pos, goal_quat, sim_steps, if_log=False):

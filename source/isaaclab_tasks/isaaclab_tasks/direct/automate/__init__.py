@@ -8,9 +8,10 @@ import gymnasium as gym
 from . import agents
 
 ##
-# Register Gym environments.
+# 注册 Gym 环境.
 ##
 
+# 注册装配任务环境
 gym.register(
     id="Isaac-AutoMate-Assembly-Direct-v0",
     entry_point=f"{__name__}.assembly_env:AssemblyEnv",
@@ -22,6 +23,7 @@ gym.register(
 )
 
 
+# 注册拆卸任务环境
 gym.register(
     id="Isaac-AutoMate-Disassembly-Direct-v0",
     entry_point=f"{__name__}.disassembly_env:DisassemblyEnv",

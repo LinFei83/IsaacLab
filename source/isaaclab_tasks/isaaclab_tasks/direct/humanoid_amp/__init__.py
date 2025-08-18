@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-AMP Humanoid locomotion environment.
+AMP 人形机器人运动环境。
 """
 
 import gymnasium as gym
@@ -12,9 +12,10 @@ import gymnasium as gym
 from . import agents
 
 ##
-# Register Gym environments.
+# 注册 Gym 环境。
 ##
 
+# 注册舞蹈动作环境
 gym.register(
     id="Isaac-Humanoid-AMP-Dance-Direct-v0",
     entry_point=f"{__name__}.humanoid_amp_env:HumanoidAmpEnv",
@@ -25,6 +26,7 @@ gym.register(
     },
 )
 
+# 注册跑步动作环境
 gym.register(
     id="Isaac-Humanoid-AMP-Run-Direct-v0",
     entry_point=f"{__name__}.humanoid_amp_env:HumanoidAmpEnv",
@@ -35,6 +37,7 @@ gym.register(
     },
 )
 
+# 注册走路动作环境
 gym.register(
     id="Isaac-Humanoid-AMP-Walk-Direct-v0",
     entry_point=f"{__name__}.humanoid_amp_env:HumanoidAmpEnv",

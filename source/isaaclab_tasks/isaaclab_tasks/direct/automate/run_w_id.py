@@ -10,13 +10,13 @@ import sys
 
 
 def update_task_param(task_cfg, assembly_id, if_sbc, if_log_eval):
-    # Read the file lines.
+    # 读取文件行。
     with open(task_cfg) as f:
         lines = f.readlines()
 
     updated_lines = []
 
-    # Regex patterns to capture the assignment lines
+    # 正则表达式模式，用于捕获赋值行
     assembly_pattern = re.compile(r"^(.*assembly_id\s*=\s*).*$")
     if_sbc_pattern = re.compile(r"^(.*if_sbc\s*:\s*bool\s*=\s*).*$")
     if_log_eval_pattern = re.compile(r"^(.*if_logging_eval\s*:\s*bool\s*=\s*).*$")
@@ -34,27 +34,27 @@ def update_task_param(task_cfg, assembly_id, if_sbc, if_log_eval):
 
         updated_lines.append(line)
 
-    # Write the modified lines back to the file.
+    # 将修改后的行写回文件。
     with open(task_cfg, "w") as f:
         f.writelines(updated_lines)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Update assembly_id and run training script.")
+    parser = argparse.ArgumentParser(description="更新assembly_id并运行训练脚本。")
     parser.add_argument(
         "--cfg_path",
         type=str,
-        help="Path to the file containing assembly_id.",
+        help="包含assembly_id的文件路径。",
         default="source/isaaclab_tasks/isaaclab_tasks/direct/automate/assembly_tasks_cfg.py",
     )
-    parser.add_argument("--assembly_id", type=str, help="New assembly ID to set.")
-    parser.add_argument("--checkpoint", type=str, help="Checkpoint path.")
-    parser.add_argument("--num_envs", type=int, default=128, help="Number of parallel environment.")
-    parser.add_argument("--seed", type=int, default=-1, help="Random seed.")
-    parser.add_argument("--train", action="store_true", help="Run training mode.")
-    parser.add_argument("--log_eval", action="store_true", help="Log evaluation results.")
-    parser.add_argument("--headless", action="store_true", help="Run in headless mode.")
-    parser.add_argument("--max_iterations", type=int, default=1500, help="Number of iteration for policy learning.")
+    parser.add_argument("--assembly_id", type=str, help="要设置的新装配ID。")
+    parser.add_argument("--checkpoint", type=str, help="检查点路径。")
+    parser.add_argument("--num_envs", type=int, default=128, help="并行环境的数量。")
+    parser.add_argument("--seed", type=int, default=-1, help="随机种子。")
+    parser.add_argument("--train", action="store_true", help="运行训练模式。")
+    parser.add_argument("--log_eval", action="store_true", help="记录评估结果。")
+    parser.add_argument("--headless", action="store_true", help="以无头模式运行。")
+    parser.add_argument("--max_iterations", type=int, default=1500, help="策略学习的迭代次数。")
     args = parser.parse_args()
 
     update_task_param(args.cfg_path, args.assembly_id, args.train, args.log_eval)
@@ -69,7 +69,7 @@ def main():
         bash_command += f" --seed={str(args.seed)} --max_iterations={str(args.max_iterations)}"
     else:
         if not args.checkpoint:
-            raise ValueError("No checkpoint provided for evaluation.")
+            raise ValueError("未提供用于评估的检查点。")
         bash_command += " scripts/reinforcement_learning/rl_games/play.py --task=Isaac-AutoMate-Assembly-Direct-v0"
 
     bash_command += f" --num_envs={str(args.num_envs)}"
@@ -80,7 +80,7 @@ def main():
     if args.headless:
         bash_command += " --headless"
 
-    # Run the bash command
+    # 运行bash命令
     subprocess.run(bash_command, shell=True, check=True)
 
 

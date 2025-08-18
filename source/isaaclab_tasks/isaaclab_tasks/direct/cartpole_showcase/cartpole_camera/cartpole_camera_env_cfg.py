@@ -15,6 +15,16 @@ from isaaclab_tasks.direct.cartpole.cartpole_camera_env import CartpoleRGBCamera
 
 
 def get_tiled_camera_cfg(data_type: str, width: int = 100, height: int = 100) -> TiledCameraCfg:
+    """获取平铺相机配置
+    
+    Args:
+        data_type (str): 数据类型，如 "rgb" 或 "depth"
+        width (int): 相机图像宽度，默认为 100
+        height (int): 相机图像高度，默认为 100
+    
+    Returns:
+        TiledCameraCfg: 平铺相机配置对象
+    """
     return TiledCameraCfg(
         prim_path="/World/envs/env_.*/Camera",
         offset=TiledCameraCfg.OffsetCfg(pos=(-5.0, 0.0, 2.0), rot=(1.0, 0.0, 0.0, 0.0), convention="world"),
@@ -28,27 +38,27 @@ def get_tiled_camera_cfg(data_type: str, width: int = 100, height: int = 100) ->
 
 
 ###
-# Observation space as Box
+# 观测空间为 Box 类型
 ###
 
 
 @configclass
 class BoxBoxEnvCfg(CartpoleCameraEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Box`` with shape (height, width, 3))
+    * 观测空间 (``~gymnasium.spaces.Box`` 类型，形状为 (height, width, 3))
 
         ===  ===
-        Idx  Observation
+        索引  观测内容
         ===  ===
-        -    RGB image
+        -    RGB 图像
         ===  ===
 
-    * Action space (``~gymnasium.spaces.Box`` with shape (1,))
+    * 动作空间 (``~gymnasium.spaces.Box`` 类型，形状为 (1,))
 
         ===  ===
-        Idx  Action
+        索引  动作
         ===  ===
-        0    Cart DOF effort scale: [-1, 1]
+        0    小车自由度施加的力矩比例: [-1, 1]
         ===  ===
     """
 
@@ -65,22 +75,22 @@ class BoxBoxEnvCfg(CartpoleCameraEnvCfg):
 @configclass
 class BoxDiscreteEnvCfg(CartpoleCameraEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Box`` with shape (height, width, 3))
+    * 观测空间 (``~gymnasium.spaces.Box`` 类型，形状为 (height, width, 3))
 
         ===  ===
-        Idx  Observation
+        索引  观测内容
         ===  ===
-        -    RGB image
+        -    RGB 图像
         ===  ===
 
-    * Action space (``~gymnasium.spaces.Discrete`` with 3 elements)
+    * 动作空间 (``~gymnasium.spaces.Discrete`` 类型，包含 3 个元素)
 
         ===  ===
-        N    Action
+        编号  动作
         ===  ===
-        0    Zero cart DOF effort
-        1    Negative maximum cart DOF effort
-        2    Positive maximum cart DOF effort
+        0    小车自由度不施加力矩
+        1    小车自由度施加负向最大力矩
+        2    小车自由度施加正向最大力矩
         ===  ===
     """
 
@@ -97,29 +107,29 @@ class BoxDiscreteEnvCfg(CartpoleCameraEnvCfg):
 @configclass
 class BoxMultiDiscreteEnvCfg(CartpoleCameraEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Box`` with shape (height, width, 3))
+    * 观测空间 (``~gymnasium.spaces.Box`` 类型，形状为 (height, width, 3))
 
         ===  ===
-        Idx  Observation
+        索引  观测内容
         ===  ===
-        -    RGB image
-        ===  ===
-
-    * Action space (``~gymnasium.spaces.MultiDiscrete`` with 2 discrete spaces)
-
-        ===  ===
-        N    Action (Discrete 0)
-        ===  ===
-        0    Zero cart DOF effort
-        1    Half of maximum cart DOF effort
-        2    Maximum cart DOF effort
+        -    RGB 图像
         ===  ===
 
+    * 动作空间 (``~gymnasium.spaces.MultiDiscrete`` 类型，包含 2 个离散空间)
+
         ===  ===
-        N    Action (Discrete 1)
+        编号  动作 (离散空间 0)
         ===  ===
-        0    Negative effort (one side)
-        1    Positive effort (other side)
+        0    小车自由度不施加力矩
+        1    小车自由度施加一半最大力矩
+        2    小车自由度施加最大力矩
+        ===  ===
+
+        ===  ===
+        编号  动作 (离散空间 1)
+        ===  ===
+        0    负向力矩 (一侧)
+        1    正向力矩 (另一侧)
         ===  ===
     """
 
@@ -134,28 +144,28 @@ class BoxMultiDiscreteEnvCfg(CartpoleCameraEnvCfg):
 
 
 ###
-# Observation space as Dict
+# 观测空间为 Dict 类型
 ###
 
 
 @configclass
 class DictBoxEnvCfg(CartpoleCameraEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Dict`` with 2 constituent spaces)
+    * 观测空间 (``~gymnasium.spaces.Dict`` 类型，包含 2 个子空间)
 
         ================  ===
-        Key               Observation
+        键名              观测内容
         ================  ===
-        joint-velocities  DOF velocities
-        camera            RGB image
+        joint-velocities  自由度速度
+        camera            RGB 图像
         ================  ===
 
-    * Action space (``~gymnasium.spaces.Box`` with shape (1,))
+    * 动作空间 (``~gymnasium.spaces.Box`` 类型，形状为 (1,))
 
         ===  ===
-        Idx  Action
+        索引  动作
         ===  ===
-        0    Cart DOF effort scale: [-1, 1]
+        0    小车自由度施加的力矩比例: [-1, 1]
         ===  ===
     """
 
@@ -173,23 +183,23 @@ class DictBoxEnvCfg(CartpoleCameraEnvCfg):
 @configclass
 class DictDiscreteEnvCfg(CartpoleCameraEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Dict`` with 2 constituent spaces)
+    * 观测空间 (``~gymnasium.spaces.Dict`` 类型，包含 2 个子空间)
 
         ================  ===
-        Key               Observation
+        键名              观测内容
         ================  ===
-        joint-velocities  DOF velocities
-        camera            RGB image
+        joint-velocities  自由度速度
+        camera            RGB 图像
         ================  ===
 
-    * Action space (``~gymnasium.spaces.Discrete`` with 3 elements)
+    * 动作空间 (``~gymnasium.spaces.Discrete`` 类型，包含 3 个元素)
 
         ===  ===
-        N    Action
+        编号  动作
         ===  ===
-        0    Zero cart DOF effort
-        1    Negative maximum cart DOF effort
-        2    Positive maximum cart DOF effort
+        0    小车自由度不施加力矩
+        1    小车自由度施加负向最大力矩
+        2    小车自由度施加正向最大力矩
         ===  ===
     """
 
@@ -207,30 +217,30 @@ class DictDiscreteEnvCfg(CartpoleCameraEnvCfg):
 @configclass
 class DictMultiDiscreteEnvCfg(CartpoleCameraEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Dict`` with 2 constituent spaces)
+    * 观测空间 (``~gymnasium.spaces.Dict`` 类型，包含 2 个子空间)
 
         ================  ===
-        Key               Observation
+        键名              观测内容
         ================  ===
-        joint-velocities  DOF velocities
-        camera            RGB image
+        joint-velocities  自由度速度
+        camera            RGB 图像
         ================  ===
 
-    * Action space (``~gymnasium.spaces.MultiDiscrete`` with 2 discrete spaces)
+    * 动作空间 (``~gymnasium.spaces.MultiDiscrete`` 类型，包含 2 个离散空间)
 
         ===  ===
-        N    Action (Discrete 0)
+        编号  动作 (离散空间 0)
         ===  ===
-        0    Zero cart DOF effort
-        1    Half of maximum cart DOF effort
-        2    Maximum cart DOF effort
+        0    小车自由度不施加力矩
+        1    小车自由度施加一半最大力矩
+        2    小车自由度施加最大力矩
         ===  ===
 
         ===  ===
-        N    Action (Discrete 1)
+        编号  动作 (离散空间 1)
         ===  ===
-        0    Negative effort (one side)
-        1    Positive effort (other side)
+        0    负向力矩 (一侧)
+        1    正向力矩 (另一侧)
         ===  ===
     """
 
@@ -246,28 +256,28 @@ class DictMultiDiscreteEnvCfg(CartpoleCameraEnvCfg):
 
 
 ###
-# Observation space as Tuple
+# 观测空间为 Tuple 类型
 ###
 
 
 @configclass
 class TupleBoxEnvCfg(CartpoleCameraEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Tuple`` with 2 constituent spaces)
+    * 观测空间 (``~gymnasium.spaces.Tuple`` 类型，包含 2 个子空间)
 
         ===  ===
-        Idx  Observation
+        索引  观测内容
         ===  ===
-        0    RGB image
-        1    DOF velocities
+        0    RGB 图像
+        1    自由度速度
         ===  ===
 
-    * Action space (``~gymnasium.spaces.Box`` with shape (1,))
+    * 动作空间 (``~gymnasium.spaces.Box`` 类型，形状为 (1,))
 
         ===  ===
-        Idx  Action
+        索引  动作
         ===  ===
-        0    Cart DOF effort scale: [-1, 1]
+        0    小车自由度施加的力矩比例: [-1, 1]
         ===  ===
     """
 
@@ -285,23 +295,23 @@ class TupleBoxEnvCfg(CartpoleCameraEnvCfg):
 @configclass
 class TupleDiscreteEnvCfg(CartpoleCameraEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Tuple`` with 2 constituent spaces)
+    * 观测空间 (``~gymnasium.spaces.Tuple`` 类型，包含 2 个子空间)
 
         ===  ===
-        Idx  Observation
+        索引  观测内容
         ===  ===
-        0    RGB image
-        1    DOF velocities
+        0    RGB 图像
+        1    自由度速度
         ===  ===
 
-    * Action space (``~gymnasium.spaces.Discrete`` with 3 elements)
+    * 动作空间 (``~gymnasium.spaces.Discrete`` 类型，包含 3 个元素)
 
         ===  ===
-        N    Action
+        编号  动作
         ===  ===
-        0    Zero cart DOF effort
-        1    Negative maximum cart DOF effort
-        2    Positive maximum cart DOF effort
+        0    小车自由度不施加力矩
+        1    小车自由度施加负向最大力矩
+        2    小车自由度施加正向最大力矩
         ===  ===
     """
 
@@ -319,30 +329,30 @@ class TupleDiscreteEnvCfg(CartpoleCameraEnvCfg):
 @configclass
 class TupleMultiDiscreteEnvCfg(CartpoleCameraEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Tuple`` with 2 constituent spaces)
+    * 观测空间 (``~gymnasium.spaces.Tuple`` 类型，包含 2 个子空间)
 
         ===  ===
-        Idx  Observation
+        索引  观测内容
         ===  ===
-        0    RGB image
-        1    DOF velocities
-        ===  ===
-
-    * Action space (``~gymnasium.spaces.MultiDiscrete`` with 2 discrete spaces)
-
-        ===  ===
-        N    Action (Discrete 0)
-        ===  ===
-        0    Zero cart DOF effort
-        1    Half of maximum cart DOF effort
-        2    Maximum cart DOF effort
+        0    RGB 图像
+        1    自由度速度
         ===  ===
 
+    * 动作空间 (``~gymnasium.spaces.MultiDiscrete`` 类型，包含 2 个离散空间)
+
         ===  ===
-        N    Action (Discrete 1)
+        编号  动作 (离散空间 0)
         ===  ===
-        0    Negative effort (one side)
-        1    Positive effort (other side)
+        0    小车自由度不施加力矩
+        1    小车自由度施加一半最大力矩
+        2    小车自由度施加最大力矩
+        ===  ===
+
+        ===  ===
+        编号  动作 (离散空间 1)
+        ===  ===
+        0    负向力矩 (一侧)
+        1    正向力矩 (另一侧)
         ===  ===
     """
 

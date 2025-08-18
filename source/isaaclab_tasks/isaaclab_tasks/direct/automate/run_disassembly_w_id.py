@@ -11,13 +11,13 @@ import sys
 
 
 def update_task_param(task_cfg, assembly_id, disassembly_dir):
-    # Read the file lines.
+    # 读取文件行。
     with open(task_cfg) as f:
         lines = f.readlines()
 
     updated_lines = []
 
-    # Regex patterns to capture the assignment lines
+    # 正则表达式模式，用于捕获赋值行
     assembly_pattern = re.compile(r"^(.*assembly_id\s*=\s*).*$")
     disassembly_dir_pattern = re.compile(r"^(.*disassembly_dir\s*=\s*).*$")
 
@@ -29,29 +29,29 @@ def update_task_param(task_cfg, assembly_id, disassembly_dir):
 
         updated_lines.append(line)
 
-    # Write the modified lines back to the file.
+    # 将修改后的行写回文件。
     with open(task_cfg, "w") as f:
         f.writelines(updated_lines)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Update assembly_id and run training script.")
+    parser = argparse.ArgumentParser(description="更新assembly_id并运行训练脚本。")
     parser.add_argument(
         "--disassembly_dir",
         type=str,
-        help="Path to the directory containing output disassembly trajectories.",
+        help="包含输出拆卸轨迹的目录路径。",
         default="disassembly_dir",
     )
     parser.add_argument(
         "--cfg_path",
         type=str,
-        help="Path to the file containing assembly_id.",
+        help="包含assembly_id的文件路径。",
         default="source/isaaclab_tasks/isaaclab_tasks/direct/automate/disassembly_tasks_cfg.py",
     )
-    parser.add_argument("--assembly_id", type=str, default="00731", help="New assembly ID to set.")
-    parser.add_argument("--num_envs", type=int, default=128, help="Number of parallel environment.")
-    parser.add_argument("--seed", type=int, default=-1, help="Random seed.")
-    parser.add_argument("--headless", action="store_true", help="Run in headless mode.")
+    parser.add_argument("--assembly_id", type=str, default="00731", help="要设置的新装配ID。")
+    parser.add_argument("--num_envs", type=int, default=128, help="并行环境的数量。")
+    parser.add_argument("--seed", type=int, default=-1, help="随机种子。")
+    parser.add_argument("--headless", action="store_true", help="以无头模式运行。")
     args = parser.parse_args()
 
     os.makedirs(args.disassembly_dir, exist_ok=True)
@@ -75,7 +75,7 @@ def main():
     if args.headless:
         bash_command += " --headless"
 
-    # Run the bash command
+    # 运行bash命令
     subprocess.run(bash_command, shell=True, check=True)
 
 

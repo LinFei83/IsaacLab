@@ -1,5 +1,5 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
-# All rights reserved.
+# 版权所有 (c) 2022-2025, The Isaac Lab Project 开发者 (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# 保留所有权利.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
@@ -16,7 +16,7 @@ class FixedAssetCfg:
     usd_path: str = ""
     diameter: float = 0.0
     height: float = 0.0
-    base_height: float = 0.0  # Used to compute held asset CoM.
+    base_height: float = 0.0  # 用于计算持有资产的质心.
     friction: float = 0.75
     mass: float = 0.05
 
@@ -24,7 +24,7 @@ class FixedAssetCfg:
 @configclass
 class HeldAssetCfg:
     usd_path: str = ""
-    diameter: float = 0.0  # Used for gripper width.
+    diameter: float = 0.0  # 用于夹爪宽度.
     height: float = 0.0
     friction: float = 0.75
     mass: float = 0.05
@@ -47,39 +47,39 @@ class FactoryTask:
     held_asset_cfg: HeldAssetCfg = HeldAssetCfg()
     asset_size: float = 0.0
 
-    # Robot
-    hand_init_pos: list = [0.0, 0.0, 0.015]  # Relative to fixed asset tip.
+    # 机器人
+    hand_init_pos: list = [0.0, 0.0, 0.015]  # 相对于固定资产尖端.
     hand_init_pos_noise: list = [0.02, 0.02, 0.01]
     hand_init_orn: list = [3.1416, 0, 2.356]
     hand_init_orn_noise: list = [0.0, 0.0, 1.57]
 
-    # Action
+    # 动作
     unidirectional_rot: bool = False
 
-    # Fixed Asset (applies to all tasks)
+    # 固定资产 (适用于所有任务)
     fixed_asset_init_pos_noise: list = [0.05, 0.05, 0.05]
     fixed_asset_init_orn_deg: float = 0.0
     fixed_asset_init_orn_range_deg: float = 360.0
 
-    # Held Asset (applies to all tasks)
-    held_asset_pos_noise: list = [0.0, 0.006, 0.003]  # noise level of the held asset in gripper
+    # 持有资产 (适用于所有任务)
+    held_asset_pos_noise: list = [0.0, 0.006, 0.003]  # 夹爪中持有资产的噪声水平
     held_asset_rot_init: float = -90.0
 
-    # Reward
-    ee_success_yaw: float = 0.0  # nut_thread task only.
+    # 奖励
+    ee_success_yaw: float = 0.0  # 仅适用于 nut_thread 任务.
     action_penalty_ee_scale: float = 0.0
     action_grad_penalty_scale: float = 0.0
-    # Reward function details can be found in Appendix B of https://arxiv.org/pdf/2408.04587.
-    # Multi-scale keypoints are used to capture different phases of the task.
-    # Each reward passes the keypoint distance, x, through a squashing function:
+    # 奖励函数的详细信息可以在 https://arxiv.org/pdf/2408.04587 的附录B中找到.
+    # 使用多尺度关键点来捕捉任务的不同阶段.
+    # 每个奖励将关键点距离 x 通过一个压缩函数:
     #     r(x) = 1/(exp(-ax) + b + exp(ax)).
-    # Each list defines [a, b] which control the slope and maximum of the squashing function.
+    # 每个列表定义了 [a, b] 来控制压缩函数的斜率和最大值.
     num_keypoints: int = 4
     keypoint_scale: float = 0.15
-    keypoint_coef_baseline: list = [5, 4]  # General movement towards fixed object.
-    keypoint_coef_coarse: list = [50, 2]  # Movement to align the assets.
-    keypoint_coef_fine: list = [100, 0]  # Smaller distances for threading or last-inch insertion.
-    # Fixed-asset height fraction for which different bonuses are rewarded (see individual tasks).
+    keypoint_coef_baseline: list = [5, 4]  # 向固定物体的一般移动.
+    keypoint_coef_coarse: list = [50, 2]  # 资产对齐的移动.
+    keypoint_coef_fine: list = [100, 0]  # 用于螺纹连接或最后插入的小距离.
+    # 固定资产高度的分数，用于奖励不同的奖金 (参见各个任务).
     success_threshold: float = 0.04
     engage_threshold: float = 0.9
 
@@ -108,26 +108,26 @@ class PegInsert(FactoryTask):
     asset_size = 8.0
     duration_s = 10.0
 
-    # Robot
-    hand_init_pos: list = [0.0, 0.0, 0.047]  # Relative to fixed asset tip.
+    # 机器人
+    hand_init_pos: list = [0.0, 0.0, 0.047]  # 相对于固定资产尖端.
     hand_init_pos_noise: list = [0.02, 0.02, 0.01]
     hand_init_orn: list = [3.1416, 0.0, 0.0]
     hand_init_orn_noise: list = [0.0, 0.0, 0.785]
 
-    # Fixed Asset (applies to all tasks)
+    # 固定资产 (适用于所有任务)
     fixed_asset_init_pos_noise: list = [0.05, 0.05, 0.05]
     fixed_asset_init_orn_deg: float = 0.0
     fixed_asset_init_orn_range_deg: float = 360.0
 
-    # Held Asset (applies to all tasks)
-    held_asset_pos_noise: list = [0.003, 0.0, 0.003]  # noise level of the held asset in gripper
+    # 持有资产 (适用于所有任务)
+    held_asset_pos_noise: list = [0.003, 0.0, 0.003]  # 夹爪中持有资产的噪声水平
     held_asset_rot_init: float = 0.0
 
-    # Rewards
+    # 奖励
     keypoint_coef_baseline: list = [5, 4]
     keypoint_coef_coarse: list = [50, 2]
     keypoint_coef_fine: list = [100, 0]
-    # Fraction of socket height.
+    # 插座高度的分数.
     success_threshold: float = 0.04
     engage_threshold: float = 0.9
 
@@ -196,7 +196,7 @@ class GearBase(FixedAssetCfg):
 @configclass
 class MediumGear(HeldAssetCfg):
     usd_path = f"{ASSET_DIR}/factory_gear_medium.usd"
-    diameter = 0.03  # Used for gripper width.
+    diameter = 0.03  # 用于夹爪宽度.
     height: float = 0.03
     mass = 0.012
 
@@ -263,29 +263,29 @@ class GearMesh(FactoryTask):
         actuators={},
     )
 
-    # Gears Asset
+    # 齿轮资产
     add_flanking_gears = True
     add_flanking_gears_prob = 1.0
 
-    # Robot
-    hand_init_pos: list = [0.0, 0.0, 0.035]  # Relative to fixed asset tip.
+    # 机器人
+    hand_init_pos: list = [0.0, 0.0, 0.035]  # 相对于固定资产尖端.
     hand_init_pos_noise: list = [0.02, 0.02, 0.01]
     hand_init_orn: list = [3.1416, 0, 0.0]
     hand_init_orn_noise: list = [0.0, 0.0, 0.785]
 
-    # Fixed Asset (applies to all tasks)
+    # 固定资产 (适用于所有任务)
     fixed_asset_init_pos_noise: list = [0.05, 0.05, 0.05]
     fixed_asset_init_orn_deg: float = 0.0
     fixed_asset_init_orn_range_deg: float = 15.0
 
-    # Held Asset (applies to all tasks)
-    held_asset_pos_noise: list = [0.003, 0.0, 0.003]  # noise level of the held asset in gripper
+    # 持有资产 (适用于所有任务)
+    held_asset_pos_noise: list = [0.003, 0.0, 0.003]  # 夹爪中持有资产的噪声水平
     held_asset_rot_init: float = -90.0
 
     keypoint_coef_baseline: list = [5, 4]
     keypoint_coef_coarse: list = [50, 2]
     keypoint_coef_fine: list = [100, 0]
-    # Fraction of gear peg height.
+    # 齿轮销高度的分数.
     success_threshold: float = 0.05
     engage_threshold: float = 0.9
 
@@ -347,7 +347,7 @@ class NutM16(HeldAssetCfg):
     diameter = 0.024
     height = 0.01
     mass = 0.03
-    friction = 0.01  # Additive with the nut means friction is (-0.25 + 0.75)/2 = 0.25
+    friction = 0.01  # 与螺母相加意味着摩擦力为 (-0.25 + 0.75)/2 = 0.25
 
 
 @configclass
@@ -367,30 +367,30 @@ class NutThread(FactoryTask):
     asset_size = 16.0
     duration_s = 30.0
 
-    # Robot
-    hand_init_pos: list = [0.0, 0.0, 0.015]  # Relative to fixed asset tip.
+    # 机器人
+    hand_init_pos: list = [0.0, 0.0, 0.015]  # 相对于固定资产尖端.
     hand_init_pos_noise: list = [0.02, 0.02, 0.01]
     hand_init_orn: list = [3.1416, 0.0, 1.83]
     hand_init_orn_noise: list = [0.0, 0.0, 0.26]
 
-    # Action
+    # 动作
     unidirectional_rot: bool = True
 
-    # Fixed Asset (applies to all tasks)
+    # 固定资产 (适用于所有任务)
     fixed_asset_init_pos_noise: list = [0.05, 0.05, 0.05]
     fixed_asset_init_orn_deg: float = 120.0
     fixed_asset_init_orn_range_deg: float = 30.0
 
-    # Held Asset (applies to all tasks)
-    held_asset_pos_noise: list = [0.0, 0.003, 0.003]  # noise level of the held asset in gripper
+    # 持有资产 (适用于所有任务)
+    held_asset_pos_noise: list = [0.0, 0.003, 0.003]  # 夹爪中持有资产的噪声水平
     held_asset_rot_init: float = -90.0
 
-    # Reward.
+    # 奖励.
     ee_success_yaw = 0.0
     keypoint_coef_baseline: list = [100, 2]
     keypoint_coef_coarse: list = [500, 2]  # 100, 2
     keypoint_coef_fine: list = [1500, 0]  # 500, 0
-    # Fraction of thread-height.
+    # 螺纹高度的分数.
     success_threshold: float = 0.375
     engage_threshold: float = 0.5
     keypoint_scale: float = 0.05

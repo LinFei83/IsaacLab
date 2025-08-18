@@ -23,7 +23,7 @@ from isaaclab.utils.math import sample_uniform
 
 @configclass
 class CartDoublePendulumEnvCfg(DirectMARLEnvCfg):
-    # env
+    # 环境配置
     decimation = 2
     episode_length_s = 5.0
     possible_agents = ["cart", "pendulum"]
@@ -31,28 +31,28 @@ class CartDoublePendulumEnvCfg(DirectMARLEnvCfg):
     observation_spaces = {"cart": 4, "pendulum": 3}
     state_space = -1
 
-    # simulation
+    # 仿真配置
     sim: SimulationCfg = SimulationCfg(dt=1 / 120, render_interval=decimation)
 
-    # robot
+    # 机器人配置
     robot_cfg: ArticulationCfg = CART_DOUBLE_PENDULUM_CFG.replace(prim_path="/World/envs/env_.*/Robot")
     cart_dof_name = "slider_to_cart"
     pole_dof_name = "cart_to_pole"
     pendulum_dof_name = "pole_to_pendulum"
 
-    # scene
+    # 场景配置
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=4096, env_spacing=4.0, replicate_physics=True)
 
-    # reset
-    max_cart_pos = 3.0  # the cart is reset if it exceeds that position [m]
-    initial_pole_angle_range = [-0.25, 0.25]  # the range in which the pole angle is sampled from on reset [rad]
-    initial_pendulum_angle_range = [-0.25, 0.25]  # the range in which the pendulum angle is sampled from on reset [rad]
+    # 重置配置
+    max_cart_pos = 3.0  # 如果小车位置超过此值则重置 [m]
+    initial_pole_angle_range = [-0.25, 0.25]  # 重置时杆子角度的采样范围 [rad]
+    initial_pendulum_angle_range = [-0.25, 0.25]  # 重置时摆锤角度的采样范围 [rad]
 
-    # action scales
-    cart_action_scale = 100.0  # [N]
-    pendulum_action_scale = 50.0  # [Nm]
+    # 动作缩放
+    cart_action_scale = 100.0  # 小车动作缩放 [N]
+    pendulum_action_scale = 50.0  # 摆锤动作缩放 [Nm]
 
-    # reward scales
+    # 奖励缩放
     rew_scale_alive = 1.0
     rew_scale_terminated = -2.0
     rew_scale_cart_pos = 0
@@ -78,16 +78,16 @@ class CartDoublePendulumEnv(DirectMARLEnv):
 
     def _setup_scene(self):
         self.robot = Articulation(self.cfg.robot_cfg)
-        # add ground plane
+        # 添加地面
         spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg())
-        # clone and replicate
+        # 克隆和复制环境
         self.scene.clone_environments(copy_from_source=False)
-        # we need to explicitly filter collisions for CPU simulation
+        # 对于 CPU 仿真，我们需要显式过滤碰撞
         if self.device == "cpu":
             self.scene.filter_collisions(global_prim_paths=[])
-        # add articulation to scene
+        # 将机器人添加到场景中
         self.scene.articulations["robot"] = self.robot
-        # add lights
+        # 添加灯光
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
 
@@ -103,6 +103,7 @@ class CartDoublePendulumEnv(DirectMARLEnv):
         )
 
     def _get_observations(self) -> dict[str, torch.Tensor]:
+        # 获取杆子和摆锤的关节位置，并进行角度归一化
         pole_joint_pos = normalize_angle(self.joint_pos[:, self._pole_dof_idx[0]].unsqueeze(dim=1))
         pendulum_joint_pos = normalize_angle(self.joint_pos[:, self._pendulum_dof_idx[0]].unsqueeze(dim=1))
         observations = {
@@ -127,33 +128,39 @@ class CartDoublePendulumEnv(DirectMARLEnv):
         return observations
 
     def _get_rewards(self) -> dict[str, torch.Tensor]:
+        # 计算奖励，包括存活奖励、终止奖励、位置奖励和速度奖励
         total_reward = compute_rewards(
-            self.cfg.rew_scale_alive,
-            self.cfg.rew_scale_terminated,
-            self.cfg.rew_scale_cart_pos,
-            self.cfg.rew_scale_cart_vel,
-            self.cfg.rew_scale_pole_pos,
-            self.cfg.rew_scale_pole_vel,
-            self.cfg.rew_scale_pendulum_pos,
-            self.cfg.rew_scale_pendulum_vel,
-            self.joint_pos[:, self._cart_dof_idx[0]],
-            self.joint_vel[:, self._cart_dof_idx[0]],
-            normalize_angle(self.joint_pos[:, self._pole_dof_idx[0]]),
-            self.joint_vel[:, self._pole_dof_idx[0]],
-            normalize_angle(self.joint_pos[:, self._pendulum_dof_idx[0]]),
-            self.joint_vel[:, self._pendulum_dof_idx[0]],
-            math.prod(self.terminated_dict.values()),
+            self.cfg.rew_scale_alive,           # 存活奖励缩放
+            self.cfg.rew_scale_terminated,    # 终止奖励缩放
+            self.cfg.rew_scale_cart_pos,      # 小车位置奖励缩放
+            self.cfg.rew_scale_cart_vel,      # 小车速度奖励缩放
+            self.cfg.rew_scale_pole_pos,      # 杆子位置奖励缩放
+            self.cfg.rew_scale_pole_vel,      # 杆子速度奖励缩放
+            self.cfg.rew_scale_pendulum_pos,  # 摆锤位置奖励缩放
+            self.cfg.rew_scale_pendulum_vel,  # 摆锤速度奖励缩放
+            self.joint_pos[:, self._cart_dof_idx[0]],      # 小车位置
+            self.joint_vel[:, self._cart_dof_idx[0]],      # 小车速度
+            normalize_angle(self.joint_pos[:, self._pole_dof_idx[0]]),  # 杆子位置（归一化）
+            self.joint_vel[:, self._pole_dof_idx[0]],      # 杆子速度
+            normalize_angle(self.joint_pos[:, self._pendulum_dof_idx[0]]),  # 摆锤位置（归一化）
+            self.joint_vel[:, self._pendulum_dof_idx[0]],  # 摆锤速度
+            math.prod(self.terminated_dict.values()),      # 是否终止
         )
         return total_reward
 
     def _get_dones(self) -> tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]:
+        # 更新关节位置和速度
         self.joint_pos = self.robot.data.joint_pos
         self.joint_vel = self.robot.data.joint_vel
 
+        # 检查是否超时
         time_out = self.episode_length_buf >= self.max_episode_length - 1
+        # 检查小车是否超出边界
         out_of_bounds = torch.any(torch.abs(self.joint_pos[:, self._cart_dof_idx]) > self.cfg.max_cart_pos, dim=1)
+        # 检查杆子是否超出角度范围（超过90度）
         out_of_bounds = out_of_bounds | torch.any(torch.abs(self.joint_pos[:, self._pole_dof_idx]) > math.pi / 2, dim=1)
 
+        # 为所有代理设置终止条件和超时条件
         terminated = {agent: out_of_bounds for agent in self.cfg.possible_agents}
         time_outs = {agent: time_out for agent in self.cfg.possible_agents}
         return terminated, time_outs
@@ -163,18 +170,21 @@ class CartDoublePendulumEnv(DirectMARLEnv):
             env_ids = self.robot._ALL_INDICES
         super()._reset_idx(env_ids)
 
+        # 获取默认关节位置
         joint_pos = self.robot.data.default_joint_pos[env_ids]
+        # 为杆子关节位置添加随机扰动
         joint_pos[:, self._pole_dof_idx] += sample_uniform(
-            self.cfg.initial_pole_angle_range[0] * math.pi,
-            self.cfg.initial_pole_angle_range[1] * math.pi,
-            joint_pos[:, self._pole_dof_idx].shape,
-            joint_pos.device,
+            self.cfg.initial_pole_angle_range[0] * math.pi,  # 最小角度
+            self.cfg.initial_pole_angle_range[1] * math.pi,  # 最大角度
+            joint_pos[:, self._pole_dof_idx].shape,          # 形状
+            joint_pos.device,                                # 设备
         )
+        # 为摆锤关节位置添加随机扰动
         joint_pos[:, self._pendulum_dof_idx] += sample_uniform(
-            self.cfg.initial_pendulum_angle_range[0] * math.pi,
-            self.cfg.initial_pendulum_angle_range[1] * math.pi,
-            joint_pos[:, self._pendulum_dof_idx].shape,
-            joint_pos.device,
+            self.cfg.initial_pendulum_angle_range[0] * math.pi,  # 最小角度
+            self.cfg.initial_pendulum_angle_range[1] * math.pi,  # 最大角度
+            joint_pos[:, self._pendulum_dof_idx].shape,          # 形状
+            joint_pos.device,                                    # 设备
         )
         joint_vel = self.robot.data.default_joint_vel[env_ids]
 
@@ -189,39 +199,50 @@ class CartDoublePendulumEnv(DirectMARLEnv):
         self.robot.write_joint_state_to_sim(joint_pos, joint_vel, None, env_ids)
 
 
+# 使用 TorchScript 编译函数以提高性能
 @torch.jit.script
 def normalize_angle(angle):
+    # 将角度归一化到 [-π, π] 范围内
     return (angle + math.pi) % (2 * math.pi) - math.pi
 
 
+# 使用 TorchScript 编译函数以提高性能
 @torch.jit.script
 def compute_rewards(
-    rew_scale_alive: float,
-    rew_scale_terminated: float,
-    rew_scale_cart_pos: float,
-    rew_scale_cart_vel: float,
-    rew_scale_pole_pos: float,
-    rew_scale_pole_vel: float,
-    rew_scale_pendulum_pos: float,
-    rew_scale_pendulum_vel: float,
-    cart_pos: torch.Tensor,
-    cart_vel: torch.Tensor,
-    pole_pos: torch.Tensor,
-    pole_vel: torch.Tensor,
-    pendulum_pos: torch.Tensor,
-    pendulum_vel: torch.Tensor,
-    reset_terminated: torch.Tensor,
+    rew_scale_alive: float,           # 存活奖励缩放因子
+    rew_scale_terminated: float,    # 终止奖励缩放因子
+    rew_scale_cart_pos: float,      # 小车位置奖励缩放因子
+    rew_scale_cart_vel: float,      # 小车速度奖励缩放因子
+    rew_scale_pole_pos: float,      # 杆子位置奖励缩放因子
+    rew_scale_pole_vel: float,      # 杆子速度奖励缩放因子
+    rew_scale_pendulum_pos: float,  # 摆锤位置奖励缩放因子
+    rew_scale_pendulum_vel: float,  # 摆锤速度奖励缩放因子
+    cart_pos: torch.Tensor,         # 小车位置
+    cart_vel: torch.Tensor,         # 小车速度
+    pole_pos: torch.Tensor,         # 杆子位置
+    pole_vel: torch.Tensor,         # 杆子速度
+    pendulum_pos: torch.Tensor,     # 摆锤位置
+    pendulum_vel: torch.Tensor,     # 摆锤速度
+    reset_terminated: torch.Tensor, # 是否终止
 ):
+    # 计算存活奖励：如果未终止，则获得奖励
     rew_alive = rew_scale_alive * (1.0 - reset_terminated.float())
+    # 计算终止奖励：如果终止，则获得负奖励
     rew_termination = rew_scale_terminated * reset_terminated.float()
+    # 计算杆子位置奖励：杆子角度越小，奖励越高
     rew_pole_pos = rew_scale_pole_pos * torch.sum(torch.square(pole_pos).unsqueeze(dim=1), dim=-1)
+    # 计算摆锤位置奖励：摆锤角度越小，奖励越高
     rew_pendulum_pos = rew_scale_pendulum_pos * torch.sum(
         torch.square(pole_pos + pendulum_pos).unsqueeze(dim=1), dim=-1
     )
+    # 计算小车速度惩罚：小车速度越小，惩罚越小
     rew_cart_vel = rew_scale_cart_vel * torch.sum(torch.abs(cart_vel).unsqueeze(dim=1), dim=-1)
+    # 计算杆子速度惩罚：杆子速度越小，惩罚越小
     rew_pole_vel = rew_scale_pole_vel * torch.sum(torch.abs(pole_vel).unsqueeze(dim=1), dim=-1)
+    # 计算摆锤速度惩罚：摆锤速度越小，惩罚越小
     rew_pendulum_vel = rew_scale_pendulum_vel * torch.sum(torch.abs(pendulum_vel).unsqueeze(dim=1), dim=-1)
 
+    # 总奖励：包括存活奖励、终止奖励、位置奖励和速度惩罚
     total_reward = {
         "cart": rew_alive + rew_termination + rew_pole_pos + rew_cart_vel + rew_pole_vel,
         "pendulum": rew_alive + rew_termination + rew_pendulum_pos + rew_pendulum_vel,

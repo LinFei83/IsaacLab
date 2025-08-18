@@ -4,19 +4,23 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-Allegro Inhand Manipulation environment.
+Allegro手部在手操作环境。
 """
 
+# 导入gymnasium库，用于创建强化学习环境
 import gymnasium as gym
 
+# 导入agents模块，包含强化学习算法配置
 from . import agents
 
 ##
-# Register Gym environments.
+# 注册Gym环境
 ##
 
+# 定义在手操作任务的入口点
 inhand_task_entry = "isaaclab_tasks.direct.inhand_manipulation"
 
+# 注册Allegro手部操作立方体的环境
 gym.register(
     id="Isaac-Repose-Cube-Allegro-Direct-v0",
     entry_point=f"{inhand_task_entry}.inhand_manipulation_env:InHandManipulationEnv",

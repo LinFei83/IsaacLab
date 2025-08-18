@@ -12,114 +12,114 @@ from isaaclab.utils import configclass
 from isaaclab_tasks.direct.cartpole.cartpole_env import CartpoleEnvCfg
 
 ###
-# Observation space as Box
+# 观察空间为 Box 类型
 ###
 
 
 @configclass
 class BoxBoxEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Box`` with shape (4,))
+    * 观察空间 (``~gymnasium.spaces.Box`` 类型，形状为 (4,))
 
         ===  ===
-        Idx  Observation
+        索引  观察值
         ===  ===
-        0    Pole DOF position
-        1    Pole DOF velocity
-        2    Cart DOF position
-        3    Cart DOF velocity
+        0    杆关节位置
+        1    杆关节速度
+        2    小车关节位置
+        3    小车关节速度
         ===  ===
 
-    * Action space (``~gymnasium.spaces.Box`` with shape (1,))
+    * 动作空间 (``~gymnasium.spaces.Box`` 类型，形状为 (1,))
 
         ===  ===
-        Idx  Action
+        索引  动作
         ===  ===
-        0    Cart DOF effort scale: [-1, 1]
+        0    小车关节力矩比例: [-1, 1]
         ===  ===
     """
 
-    observation_space = spaces.Box(low=float("-inf"), high=float("inf"), shape=(4,))  # or for simplicity: 4 or [4]
-    action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,))  # or for simplicity: 1 or [1]
+    observation_space = spaces.Box(low=float("-inf"), high=float("inf"), shape=(4,))  # 或简化为: 4 或 [4]
+    action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,))  # 或简化为: 1 或 [1]
 
 
 @configclass
 class BoxDiscreteEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Box`` with shape (4,))
+    * 观察空间 (``~gymnasium.spaces.Box`` 类型，形状为 (4,))
 
         ===  ===
-        Idx  Observation
+        索引  观察值
         ===  ===
-        0    Pole DOF position
-        1    Pole DOF velocity
-        2    Cart DOF position
-        3    Cart DOF velocity
+        0    杆关节位置
+        1    杆关节速度
+        2    小车关节位置
+        3    小车关节速度
         ===  ===
 
-    * Action space (``~gymnasium.spaces.Discrete`` with 3 elements)
+    * 动作空间 (``~gymnasium.spaces.Discrete`` 类型，包含 3 个元素)
 
         ===  ===
-        N    Action
+        编号  动作
         ===  ===
-        0    Zero cart DOF effort
-        1    Negative maximum cart DOF effort
-        2    Positive maximum cart DOF effort
+        0    小车关节零力矩
+        1    小车关节负最大力矩
+        2    小车关节正最大力矩
         ===  ===
     """
 
-    observation_space = spaces.Box(low=float("-inf"), high=float("inf"), shape=(4,))  # or for simplicity: 4 or [4]
-    action_space = spaces.Discrete(3)  # or for simplicity: {3}
+    observation_space = spaces.Box(low=float("-inf"), high=float("inf"), shape=(4,))  # 或简化为: 4 或 [4]
+    action_space = spaces.Discrete(3)  # 或简化为: {3}
 
 
 @configclass
 class BoxMultiDiscreteEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Box`` with shape (4,))
+    * 观察空间 (``~gymnasium.spaces.Box`` 类型，形状为 (4,))
 
         ===  ===
-        Idx  Observation
+        索引  观察值
         ===  ===
-        0    Pole DOF position
-        1    Pole DOF velocity
-        2    Cart DOF position
-        3    Cart DOF velocity
-        ===  ===
-
-    * Action space (``~gymnasium.spaces.MultiDiscrete`` with 2 discrete spaces)
-
-        ===  ===
-        N    Action (Discrete 0)
-        ===  ===
-        0    Zero cart DOF effort
-        1    Half of maximum cart DOF effort
-        2    Maximum cart DOF effort
+        0    杆关节位置
+        1    杆关节速度
+        2    小车关节位置
+        3    小车关节速度
         ===  ===
 
+    * 动作空间 (``~gymnasium.spaces.MultiDiscrete`` 类型，包含 2 个离散空间)
+
         ===  ===
-        N    Action (Discrete 1)
+        编号  动作 (离散空间 0)
         ===  ===
-        0    Negative effort (one side)
-        1    Positive effort (other side)
+        0    小车关节零力矩
+        1    小车关节半最大力矩
+        2    小车关节最大力矩
+        ===  ===
+
+        ===  ===
+        编号  动作 (离散空间 1)
+        ===  ===
+        0    负力矩 (一侧)
+        1    正力矩 (另一侧)
         ===  ===
     """
 
-    observation_space = spaces.Box(low=float("-inf"), high=float("inf"), shape=(4,))  # or for simplicity: 4 or [4]
-    action_space = spaces.MultiDiscrete([3, 2])  # or for simplicity: [{3}, {2}]
+    observation_space = spaces.Box(low=float("-inf"), high=float("inf"), shape=(4,))  # 或简化为: 4 或 [4]
+    action_space = spaces.MultiDiscrete([3, 2])  # 或简化为: [{3}, {2}]
 
 
 ###
-# Observation space as Discrete
+# 观察空间为 Discrete 类型
 ###
 
 
 @configclass
 class DiscreteBoxEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Discrete`` with 16 elements)
+    * 观察空间 (``~gymnasium.spaces.Discrete`` 类型，包含 16 个元素)
 
         ===  ===
-        N    Observation (Value signs: pole position, cart position, pole velocity, cart velocity)
+        编号  观察值 (值的符号: 杆位置, 小车位置, 杆速度, 小车速度)
         ===  ===
         0    - - - -
         1    - - - +
@@ -139,26 +139,26 @@ class DiscreteBoxEnvCfg(CartpoleEnvCfg):
         15   + + + +
         ===  ===
 
-    * Action space (``~gymnasium.spaces.Box`` with shape (1,))
+    * 动作空间 (``~gymnasium.spaces.Box`` 类型，形状为 (1,))
 
         ===  ===
-        Idx  Action
+        索引  动作
         ===  ===
-        0    Cart DOF effort scale: [-1, 1]
+        0    小车关节力矩比例: [-1, 1]
         ===  ===
     """
 
-    observation_space = spaces.Discrete(16)  # or for simplicity: {16}
-    action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,))  # or for simplicity: 1 or [1]
+    observation_space = spaces.Discrete(16)  # 或简化为: {16}
+    action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,))  # 或简化为: 1 或 [1]
 
 
 @configclass
 class DiscreteDiscreteEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Discrete`` with 16 elements)
+    * 观察空间 (``~gymnasium.spaces.Discrete`` 类型，包含 16 个元素)
 
         ===  ===
-        N    Observation (Value signs: pole position, cart position, pole velocity, cart velocity)
+        编号  观察值 (值的符号: 杆位置, 小车位置, 杆速度, 小车速度)
         ===  ===
         0    - - - -
         1    - - - +
@@ -178,28 +178,28 @@ class DiscreteDiscreteEnvCfg(CartpoleEnvCfg):
         15   + + + +
         ===  ===
 
-    * Action space (``~gymnasium.spaces.Discrete`` with 3 elements)
+    * 动作空间 (``~gymnasium.spaces.Discrete`` 类型，包含 3 个元素)
 
         ===  ===
-        N    Action
+        编号  动作
         ===  ===
-        0    Zero cart DOF effort
-        1    Negative maximum cart DOF effort
-        2    Positive maximum cart DOF effort
+        0    小车关节零力矩
+        1    小车关节负最大力矩
+        2    小车关节正最大力矩
         ===  ===
     """
 
-    observation_space = spaces.Discrete(16)  # or for simplicity: {16}
-    action_space = spaces.Discrete(3)  # or for simplicity: {3}
+    observation_space = spaces.Discrete(16)  # 或简化为: {16}
+    action_space = spaces.Discrete(3)  # 或简化为: {3}
 
 
 @configclass
 class DiscreteMultiDiscreteEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Discrete`` with 16 elements)
+    * 观察空间 (``~gymnasium.spaces.Discrete`` 类型，包含 16 个元素)
 
         ===  ===
-        N    Observation (Value signs: pole position, cart position, pole velocity, cart velocity)
+        编号  观察值 (值的符号: 杆位置, 小车位置, 杆速度, 小车速度)
         ===  ===
         0    - - - -
         1    - - - +
@@ -219,377 +219,377 @@ class DiscreteMultiDiscreteEnvCfg(CartpoleEnvCfg):
         15   + + + +
         ===  ===
 
-    * Action space (``~gymnasium.spaces.MultiDiscrete`` with 2 discrete spaces)
+    * 动作空间 (``~gymnasium.spaces.MultiDiscrete`` 类型，包含 2 个离散空间)
 
         ===  ===
-        N    Action (Discrete 0)
+        编号  动作 (离散空间 0)
         ===  ===
-        0    Zero cart DOF effort
-        1    Half of maximum cart DOF effort
-        2    Maximum cart DOF effort
+        0    小车关节零力矩
+        1    小车关节半最大力矩
+        2    小车关节最大力矩
         ===  ===
 
         ===  ===
-        N    Action (Discrete 1)
+        编号  动作 (离散空间 1)
         ===  ===
-        0    Negative effort (one side)
-        1    Positive effort (other side)
+        0    负力矩 (一侧)
+        1    正力矩 (另一侧)
         ===  ===
     """
 
-    observation_space = spaces.Discrete(16)  # or for simplicity: {16}
-    action_space = spaces.MultiDiscrete([3, 2])  # or for simplicity: [{3}, {2}]
+    observation_space = spaces.Discrete(16)  # 或简化为: {16}
+    action_space = spaces.MultiDiscrete([3, 2])  # 或简化为: [{3}, {2}]
 
 
 ###
-# Observation space as MultiDiscrete
+# 观察空间为 MultiDiscrete 类型
 ###
 
 
 @configclass
 class MultiDiscreteBoxEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.MultiDiscrete`` with 4 discrete spaces)
+    * 观察空间 (``~gymnasium.spaces.MultiDiscrete`` 类型，包含 4 个离散空间)
 
         ===  ===
-        N    Observation (Discrete 0)
+        编号  观察值 (离散空间 0)
         ===  ===
-        0    Negative pole position (-)
-        1    Zero or positive pole position (+)
-        ===  ===
-
-        ===  ===
-        N    Observation (Discrete 1)
-        ===  ===
-        0    Negative cart position (-)
-        1    Zero or positive cart position (+)
+        0    负杆位置 (-)
+        1    零或正杆位置 (+)
         ===  ===
 
         ===  ===
-        N    Observation (Discrete 2)
+        编号  观察值 (离散空间 1)
         ===  ===
-        0    Negative pole velocity (-)
-        1    Zero or positive pole velocity (+)
+        0    负小车位置 (-)
+        1    零或正小车位置 (+)
+        ===  ===
+
+        ===  ===
+        编号  观察值 (离散空间 2)
+        ===  ===
+        0    负杆速度 (-)
+        1    零或正杆速度 (+)
         ===  ===
 
         ===  ===
-        N    Observation (Discrete 3)
+        编号  观察值 (离散空间 3)
         ===  ===
-        0    Negative cart velocity (-)
-        1    Zero or positive cart velocity (+)
+        0    负小车速度 (-)
+        1    零或正小车速度 (+)
         ===  ===
 
-    * Action space (``~gymnasium.spaces.Box`` with shape (1,))
+    * 动作空间 (``~gymnasium.spaces.Box`` 类型，形状为 (1,))
 
         ===  ===
-        Idx  Action
+        索引  动作
         ===  ===
-        0    Cart DOF effort scale: [-1, 1]
+        0    小车关节力矩比例: [-1, 1]
         ===  ===
     """
 
-    observation_space = spaces.MultiDiscrete([2, 2, 2, 2])  # or for simplicity: [{2}, {2}, {2}, {2}]
-    action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,))  # or for simplicity: 1 or [1]
+    observation_space = spaces.MultiDiscrete([2, 2, 2, 2])  # 或简化为: [{2}, {2}, {2}, {2}]
+    action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,))  # 或简化为: 1 或 [1]
 
 
 @configclass
 class MultiDiscreteDiscreteEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.MultiDiscrete`` with 4 discrete spaces)
+    * 观察空间 (``~gymnasium.spaces.MultiDiscrete`` 类型，包含 4 个离散空间)
 
         ===  ===
-        N    Observation (Discrete 0)
+        编号  观察值 (离散空间 0)
         ===  ===
-        0    Negative pole position (-)
-        1    Zero or positive pole position (+)
-        ===  ===
-
-        ===  ===
-        N    Observation (Discrete 1)
-        ===  ===
-        0    Negative cart position (-)
-        1    Zero or positive cart position (+)
+        0    负杆位置 (-)
+        1    零或正杆位置 (+)
         ===  ===
 
         ===  ===
-        N    Observation (Discrete 2)
+        编号  观察值 (离散空间 1)
         ===  ===
-        0    Negative pole velocity (-)
-        1    Zero or positive pole velocity (+)
+        0    负小车位置 (-)
+        1    零或正小车位置 (+)
+        ===  ===
+
+        ===  ===
+        编号  观察值 (离散空间 2)
+        ===  ===
+        0    负杆速度 (-)
+        1    零或正杆速度 (+)
         ===  ===
 
         ===  ===
-        N    Observation (Discrete 3)
+        编号  观察值 (离散空间 3)
         ===  ===
-        0    Negative cart velocity (-)
-        1    Zero or positive cart velocity (+)
+        0    负小车速度 (-)
+        1    零或正小车速度 (+)
         ===  ===
 
-    * Action space (``~gymnasium.spaces.Discrete`` with 3 elements)
+    * 动作空间 (``~gymnasium.spaces.Discrete`` 类型，包含 3 个元素)
 
         ===  ===
-        N    Action
+        编号  动作
         ===  ===
-        0    Zero cart DOF effort
-        1    Negative maximum cart DOF effort
-        2    Positive maximum cart DOF effort
+        0    小车关节零力矩
+        1    小车关节负最大力矩
+        2    小车关节正最大力矩
         ===  ===
     """
 
-    observation_space = spaces.MultiDiscrete([2, 2, 2, 2])  # or for simplicity: [{2}, {2}, {2}, {2}]
-    action_space = spaces.Discrete(3)  # or for simplicity: {3}
+    observation_space = spaces.MultiDiscrete([2, 2, 2, 2])  # 或简化为: [{2}, {2}, {2}, {2}]
+    action_space = spaces.Discrete(3)  # 或简化为: {3}
 
 
 @configclass
 class MultiDiscreteMultiDiscreteEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.MultiDiscrete`` with 4 discrete spaces)
+    * 观察空间 (``~gymnasium.spaces.MultiDiscrete`` 类型，包含 4 个离散空间)
 
         ===  ===
-        N    Observation (Discrete 0)
+        编号  观察值 (离散空间 0)
         ===  ===
-        0    Negative pole position (-)
-        1    Zero or positive pole position (+)
-        ===  ===
-
-        ===  ===
-        N    Observation (Discrete 1)
-        ===  ===
-        0    Negative cart position (-)
-        1    Zero or positive cart position (+)
+        0    负杆位置 (-)
+        1    零或正杆位置 (+)
         ===  ===
 
         ===  ===
-        N    Observation (Discrete 2)
+        编号  观察值 (离散空间 1)
         ===  ===
-        0    Negative pole velocity (-)
-        1    Zero or positive pole velocity (+)
-        ===  ===
-
-        ===  ===
-        N    Observation (Discrete 3)
-        ===  ===
-        0    Negative cart velocity (-)
-        1    Zero or positive cart velocity (+)
-        ===  ===
-
-    * Action space (``~gymnasium.spaces.MultiDiscrete`` with 2 discrete spaces)
-
-        ===  ===
-        N    Action (Discrete 0)
-        ===  ===
-        0    Zero cart DOF effort
-        1    Half of maximum cart DOF effort
-        2    Maximum cart DOF effort
+        0    负小车位置 (-)
+        1    零或正小车位置 (+)
         ===  ===
 
         ===  ===
-        N    Action (Discrete 1)
+        编号  观察值 (离散空间 2)
         ===  ===
-        0    Negative effort (one side)
-        1    Positive effort (other side)
+        0    负杆速度 (-)
+        1    零或正杆速度 (+)
+        ===  ===
+
+        ===  ===
+        编号  观察值 (离散空间 3)
+        ===  ===
+        0    负小车速度 (-)
+        1    零或正小车速度 (+)
+        ===  ===
+
+    * 动作空间 (``~gymnasium.spaces.MultiDiscrete`` 类型，包含 2 个离散空间)
+
+        ===  ===
+        编号  动作 (离散空间 0)
+        ===  ===
+        0    小车关节零力矩
+        1    小车关节半最大力矩
+        2    小车关节最大力矩
+        ===  ===
+
+        ===  ===
+        编号  动作 (离散空间 1)
+        ===  ===
+        0    负力矩 (一侧)
+        1    正力矩 (另一侧)
         ===  ===
     """
 
-    observation_space = spaces.MultiDiscrete([2, 2, 2, 2])  # or for simplicity: [{2}, {2}, {2}, {2}]
-    action_space = spaces.MultiDiscrete([3, 2])  # or for simplicity: [{3}, {2}]
+    observation_space = spaces.MultiDiscrete([2, 2, 2, 2])  # 或简化为: [{2}, {2}, {2}, {2}]
+    action_space = spaces.MultiDiscrete([3, 2])  # 或简化为: [{3}, {2}]
 
 
 ###
-# Observation space as Dict
+# 观察空间为 Dict 类型
 ###
 
 
 @configclass
 class DictBoxEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Dict`` with 2 constituent spaces)
+    * 观察空间 (``~gymnasium.spaces.Dict`` 类型，包含 2 个子空间)
 
         ================  ===
-        Key               Observation
+        键名               观察值
         ================  ===
-        joint-positions   DOF positions
-        joint-velocities  DOF velocities
+        joint-positions   关节位置
+        joint-velocities  关节速度
         ================  ===
 
-    * Action space (``~gymnasium.spaces.Box`` with shape (1,))
+    * 动作空间 (``~gymnasium.spaces.Box`` 类型，形状为 (1,))
 
         ===  ===
-        Idx  Action
+        索引  动作
         ===  ===
-        0    Cart DOF effort scale: [-1, 1]
+        0    小车关节力矩比例: [-1, 1]
         ===  ===
     """
 
     observation_space = spaces.Dict({
         "joint-positions": spaces.Box(low=float("-inf"), high=float("inf"), shape=(2,)),
         "joint-velocities": spaces.Box(low=float("-inf"), high=float("inf"), shape=(2,)),
-    })  # or for simplicity: {"joint-positions": 2, "joint-velocities": 2}
-    action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,))  # or for simplicity: 1 or [1]
+    })  # 或简化为: {"joint-positions": 2, "joint-velocities": 2}
+    action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,))  # 或简化为: 1 或 [1]
 
 
 @configclass
 class DictDiscreteEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Dict`` with 2 constituent spaces)
+    * 观察空间 (``~gymnasium.spaces.Dict`` 类型，包含 2 个子空间)
 
         ================  ===
-        Key               Observation
+        键名               观察值
         ================  ===
-        joint-positions   DOF positions
-        joint-velocities  DOF velocities
+        joint-positions   关节位置
+        joint-velocities  关节速度
         ================  ===
 
-    * Action space (``~gymnasium.spaces.Discrete`` with 3 elements)
+    * 动作空间 (``~gymnasium.spaces.Discrete`` 类型，包含 3 个元素)
 
         ===  ===
-        N    Action
+        编号  动作
         ===  ===
-        0    Zero cart DOF effort
-        1    Negative maximum cart DOF effort
-        2    Positive maximum cart DOF effort
+        0    小车关节零力矩
+        1    小车关节负最大力矩
+        2    小车关节正最大力矩
         ===  ===
     """
 
     observation_space = spaces.Dict({
         "joint-positions": spaces.Box(low=float("-inf"), high=float("inf"), shape=(2,)),
         "joint-velocities": spaces.Box(low=float("-inf"), high=float("inf"), shape=(2,)),
-    })  # or for simplicity: {"joint-positions": 2, "joint-velocities": 2}
-    action_space = spaces.Discrete(3)  # or for simplicity: {3}
+    })  # 或简化为: {"joint-positions": 2, "joint-velocities": 2}
+    action_space = spaces.Discrete(3)  # 或简化为: {3}
 
 
 @configclass
 class DictMultiDiscreteEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Dict`` with 2 constituent spaces)
+    * 观察空间 (``~gymnasium.spaces.Dict`` 类型，包含 2 个子空间)
 
         ================  ===
-        Key               Observation
+        键名               观察值
         ================  ===
-        joint-positions   DOF positions
-        joint-velocities  DOF velocities
+        joint-positions   关节位置
+        joint-velocities  关节速度
         ================  ===
 
-    * Action space (``~gymnasium.spaces.MultiDiscrete`` with 2 discrete spaces)
+    * 动作空间 (``~gymnasium.spaces.MultiDiscrete`` 类型，包含 2 个离散空间)
 
         ===  ===
-        N    Action (Discrete 0)
+        编号  动作 (离散空间 0)
         ===  ===
-        0    Zero cart DOF effort
-        1    Half of maximum cart DOF effort
-        2    Maximum cart DOF effort
+        0    小车关节零力矩
+        1    小车关节半最大力矩
+        2    小车关节最大力矩
         ===  ===
 
         ===  ===
-        N    Action (Discrete 1)
+        编号  动作 (离散空间 1)
         ===  ===
-        0    Negative effort (one side)
-        1    Positive effort (other side)
+        0    负力矩 (一侧)
+        1    正力矩 (另一侧)
         ===  ===
     """
 
     observation_space = spaces.Dict({
         "joint-positions": spaces.Box(low=float("-inf"), high=float("inf"), shape=(2,)),
         "joint-velocities": spaces.Box(low=float("-inf"), high=float("inf"), shape=(2,)),
-    })  # or for simplicity: {"joint-positions": 2, "joint-velocities": 2}
-    action_space = spaces.MultiDiscrete([3, 2])  # or for simplicity: [{3}, {2}]
+    })  # 或简化为: {"joint-positions": 2, "joint-velocities": 2}
+    action_space = spaces.MultiDiscrete([3, 2])  # 或简化为: [{3}, {2}]
 
 
 ###
-# Observation space as Tuple
+# 观察空间为 Tuple 类型
 ###
 
 
 @configclass
 class TupleBoxEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Tuple`` with 2 constituent spaces)
+    * 观察空间 (``~gymnasium.spaces.Tuple`` 类型，包含 2 个子空间)
 
         ===  ===
-        Idx  Observation
+        索引  观察值
         ===  ===
-        0    DOF positions
-        1    DOF velocities
+        0    关节位置
+        1    关节速度
         ===  ===
 
-    * Action space (``~gymnasium.spaces.Box`` with shape (1,))
+    * 动作空间 (``~gymnasium.spaces.Box`` 类型，形状为 (1,))
 
         ===  ===
-        Idx  Action
+        索引  动作
         ===  ===
-        0    Cart DOF effort scale: [-1, 1]
+        0    小车关节力矩比例: [-1, 1]
         ===  ===
     """
 
     observation_space = spaces.Tuple((
         spaces.Box(low=float("-inf"), high=float("inf"), shape=(2,)),
         spaces.Box(low=float("-inf"), high=float("inf"), shape=(2,)),
-    ))  # or for simplicity: (2, 2)
-    action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,))  # or for simplicity: 1 or [1]
+    ))  # 或简化为: (2, 2)
+    action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,))  # 或简化为: 1 或 [1]
 
 
 @configclass
 class TupleDiscreteEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Tuple`` with 2 constituent spaces)
+    * 观察空间 (``~gymnasium.spaces.Tuple`` 类型，包含 2 个子空间)
 
         ===  ===
-        Idx  Observation
+        索引  观察值
         ===  ===
-        0    DOF positions
-        1    DOF velocities
+        0    关节位置
+        1    关节速度
         ===  ===
 
-    * Action space (``~gymnasium.spaces.Discrete`` with 3 elements)
+    * 动作空间 (``~gymnasium.spaces.Discrete`` 类型，包含 3 个元素)
 
         ===  ===
-        N    Action
+        编号  动作
         ===  ===
-        0    Zero cart DOF effort
-        1    Negative maximum cart DOF effort
-        2    Positive maximum cart DOF effort
+        0    小车关节零力矩
+        1    小车关节负最大力矩
+        2    小车关节正最大力矩
         ===  ===
     """
 
     observation_space = spaces.Tuple((
         spaces.Box(low=float("-inf"), high=float("inf"), shape=(2,)),
         spaces.Box(low=float("-inf"), high=float("inf"), shape=(2,)),
-    ))  # or for simplicity: (2, 2)
-    action_space = spaces.Discrete(3)  # or for simplicity: {3}
+    ))  # 或简化为: (2, 2)
+    action_space = spaces.Discrete(3)  # 或简化为: {3}
 
 
 @configclass
 class TupleMultiDiscreteEnvCfg(CartpoleEnvCfg):
     """
-    * Observation space (``~gymnasium.spaces.Tuple`` with 2 constituent spaces)
+    * 观察空间 (``~gymnasium.spaces.Tuple`` 类型，包含 2 个子空间)
 
         ===  ===
-        Idx  Observation
+        索引  观察值
         ===  ===
-        0    DOF positions
-        1    DOF velocities
-        ===  ===
-
-    * Action space (``~gymnasium.spaces.MultiDiscrete`` with 2 discrete spaces)
-
-        ===  ===
-        N    Action (Discrete 0)
-        ===  ===
-        0    Zero cart DOF effort
-        1    Half of maximum cart DOF effort
-        2    Maximum cart DOF effort
+        0    关节位置
+        1    关节速度
         ===  ===
 
+    * 动作空间 (``~gymnasium.spaces.MultiDiscrete`` 类型，包含 2 个离散空间)
+
         ===  ===
-        N    Action (Discrete 1)
+        编号  动作 (离散空间 0)
         ===  ===
-        0    Negative effort (one side)
-        1    Positive effort (other side)
+        0    小车关节零力矩
+        1    小车关节半最大力矩
+        2    小车关节最大力矩
+        ===  ===
+
+        ===  ===
+        编号  动作 (离散空间 1)
+        ===  ===
+        0    负力矩 (一侧)
+        1    正力矩 (另一侧)
         ===  ===
     """
 
     observation_space = spaces.Tuple((
         spaces.Box(low=float("-inf"), high=float("inf"), shape=(2,)),
         spaces.Box(low=float("-inf"), high=float("inf"), shape=(2,)),
-    ))  # or for simplicity: (2, 2)
-    action_space = spaces.MultiDiscrete([3, 2])  # or for simplicity: [{3}, {2}]
+    ))  # 或简化为: (2, 2)
+    action_space = spaces.MultiDiscrete([3, 2])  # 或简化为: [{3}, {2}]

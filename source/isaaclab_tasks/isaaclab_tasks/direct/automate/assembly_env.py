@@ -1,5 +1,5 @@
-# Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
-# All rights reserved.
+# 版权所有 (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
+# 保留所有权利.
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
@@ -31,20 +31,33 @@ class AssemblyEnv(DirectRLEnv):
     cfg: AssemblyEnvCfg
 
     def __init__(self, cfg: AssemblyEnvCfg, render_mode: str | None = None, **kwargs):
+        """
+        初始化装配环境
+        
+        Args:
+            cfg: 环境配置
+            render_mode: 渲染模式
+            **kwargs: 其他参数
+        """
 
-        # Update number of obs/states
+        # 更新观测/状态数量
         cfg.observation_space = sum([OBS_DIM_CFG[obs] for obs in cfg.obs_order])
         cfg.state_space = sum([STATE_DIM_CFG[state] for state in cfg.state_order])
+        # 获取任务配置
         self.cfg_task = cfg.tasks[cfg.task_name]
 
         super().__init__(cfg, render_mode, **kwargs)
 
+        # 设置刚体惯性
         self._set_body_inertias()
+        # 初始化张量
         self._init_tensors()
+        # 设置默认动力学参数
         self._set_default_dynamics_parameters()
+        # 计算中间值
         self._compute_intermediate_values(dt=self.physics_dt)
 
-        # Load asset meshes in warp for SDF-based dense reward
+        # 加载资产网格以用于基于SDF的密集奖励
         wp.init()
         self.wp_device = wp.get_preferred_device()
         self.plug_mesh, self.plug_sample_points, self.socket_mesh = industreal_algo.load_asset_mesh_in_warp(
@@ -54,15 +67,15 @@ class AssemblyEnv(DirectRLEnv):
             self.wp_device,
         )
 
-        # Get the gripper open width based on plug object bounding box
+        # 根据插头对象的边界框获取夹爪打开宽度
         self.gripper_open_width = automate_algo.get_gripper_open_width(
             self.cfg_task.assembly_dir + self.cfg_task.held_asset_cfg.obj_path
         )
 
-        # Create criterion for dynamic time warping (later used for imitation reward)
+        # 创建动态时间规整准则（稍后用于模仿奖励）
         self.soft_dtw_criterion = SoftDTW(use_cuda=True, gamma=self.cfg_task.soft_dtw_gamma)
 
-        # Evaluate
+        # 评估
         if self.cfg_task.if_logging_eval:
             self._init_eval_logging()
 
@@ -70,140 +83,211 @@ class AssemblyEnv(DirectRLEnv):
             self._init_eval_loading()
 
     def _init_eval_loading(self):
+        """
+        初始化评估加载
+        从HDF5文件中加载评估数据，并根据采样方法创建高斯过程或高斯混合模型
+        """
         eval_held_asset_pose, eval_fixed_asset_pose, eval_success = automate_log.load_log_from_hdf5(
             self.cfg_task.eval_filename
         )
 
         if self.cfg_task.sample_from == "gp":
+            # 使用高斯过程建模成功样本
             self.gp = automate_algo.model_succ_w_gp(eval_held_asset_pose, eval_fixed_asset_pose, eval_success)
         elif self.cfg_task.sample_from == "gmm":
+            # 使用高斯混合模型建模成功样本
             self.gmm = automate_algo.model_succ_w_gmm(eval_held_asset_pose, eval_fixed_asset_pose, eval_success)
 
     def _init_eval_logging(self):
+        """
+        初始化评估日志记录
+        创建空的日志张量用于记录评估过程中的数据
+        """
 
+        # 创建空的日志张量
+        # (position, quaternion) 位置和四元数
         self.held_asset_pose_log = torch.empty(
             (0, 7), dtype=torch.float32, device=self.device
-        )  # (position, quaternion)
+        )
         self.fixed_asset_pose_log = torch.empty((0, 7), dtype=torch.float32, device=self.device)
         self.success_log = torch.empty((0, 1), dtype=torch.float32, device=self.device)
 
-        # Turn off SBC during evaluation so all plugs are initialized outside of the socket
+        # 在评估期间关闭SBC，以便所有插头都在插座外部初始化
         self.cfg_task.if_sbc = False
 
     def _set_body_inertias(self):
-        """Note: this is to account for the asset_options.armature parameter in IGE."""
+        """
+        设置刚体惯性
+        注意：这是为了考虑IGE中的asset_options.armature参数
+        """
+        # 获取机器人的惯性张量
         inertias = self._robot.root_physx_view.get_inertias()
+        # 创建偏移量张量
         offset = torch.zeros_like(inertias)
+        # 为惯性张量的对角线元素添加偏移量
         offset[:, :, [0, 4, 8]] += 0.01
+        # 计算新的惯性张量
         new_inertias = inertias + offset
+        # 设置机器人的惯性张量
         self._robot.root_physx_view.set_inertias(new_inertias, torch.arange(self.num_envs))
 
     def _set_default_dynamics_parameters(self):
-        """Set parameters defining dynamic interactions."""
+        """
+        设置定义动力学交互的参数
+        包括默认增益、位置和旋转阈值，以及质量和摩擦系数
+        """
+        # 设置默认任务比例增益
         self.default_gains = torch.tensor(self.cfg.ctrl.default_task_prop_gains, device=self.device).repeat(
             (self.num_envs, 1)
         )
 
+        # 设置位置动作阈值
         self.pos_threshold = torch.tensor(self.cfg.ctrl.pos_action_threshold, device=self.device).repeat(
             (self.num_envs, 1)
         )
+        # 设置旋转动作阈值
         self.rot_threshold = torch.tensor(self.cfg.ctrl.rot_action_threshold, device=self.device).repeat(
             (self.num_envs, 1)
         )
 
-        # Set masses and frictions.
+        # 设置质量和摩擦系数
         self._set_friction(self._held_asset, self.cfg_task.held_asset_cfg.friction)
         self._set_friction(self._fixed_asset, self.cfg_task.fixed_asset_cfg.friction)
         self._set_friction(self._robot, self.cfg_task.robot_cfg.friction)
 
     def _set_friction(self, asset, value):
-        """Update material properties for a given asset."""
+        """
+        更新给定资产的材料属性
+        设置静摩擦系数和动摩擦系数
+        """
+        # 获取资产的材料属性
         materials = asset.root_physx_view.get_material_properties()
+        # 设置静摩擦系数
         materials[..., 0] = value  # Static friction.
+        # 设置动摩擦系数
         materials[..., 1] = value  # Dynamic friction.
+        # 获取环境ID
         env_ids = torch.arange(self.scene.num_envs, device="cpu")
+        # 设置资产的材料属性
         asset.root_physx_view.set_material_properties(materials, env_ids)
 
     def _init_tensors(self):
-        """Initialize tensors once."""
+        """
+        初始化张量
+        一次性初始化所有需要的张量，包括控制目标、资产位置、关键点等
+        """
+        # 初始化单位四元数 (1, 0, 0, 0)
         self.identity_quat = (
             torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).unsqueeze(0).repeat(self.num_envs, 1)
         )
 
-        # Control targets.
+        # 控制目标张量
+        # 关节位置控制目标
         self.ctrl_target_joint_pos = torch.zeros((self.num_envs, self._robot.num_joints), device=self.device)
+        # 指尖中点位置控制目标
         self.ctrl_target_fingertip_midpoint_pos = torch.zeros((self.num_envs, 3), device=self.device)
+        # 指尖中点方向控制目标
         self.ctrl_target_fingertip_midpoint_quat = torch.zeros((self.num_envs, 4), device=self.device)
 
-        # Fixed asset.
+        # 固定资产相关张量
+        # 固定资产动作框架位置
         self.fixed_pos_action_frame = torch.zeros((self.num_envs, 3), device=self.device)
+        # 固定资产观测框架位置
         self.fixed_pos_obs_frame = torch.zeros((self.num_envs, 3), device=self.device)
+        # 固定资产位置观测噪声初始化
         self.init_fixed_pos_obs_noise = torch.zeros((self.num_envs, 3), device=self.device)
 
-        # Held asset
+        # 抓取资产相关张量
+        # 抓取资产基座偏移量
         held_base_x_offset = 0.0
         held_base_z_offset = 0.0
 
+        # 抓取资产局部位置
         self.held_base_pos_local = torch.tensor([0.0, 0.0, 0.0], device=self.device).repeat((self.num_envs, 1))
         self.held_base_pos_local[:, 0] = held_base_x_offset
         self.held_base_pos_local[:, 2] = held_base_z_offset
+        # 抓取资产局部方向
         self.held_base_quat_local = self.identity_quat.clone().detach()
 
+        # 抓取资产位置和方向
         self.held_base_pos = torch.zeros_like(self.held_base_pos_local)
         self.held_base_quat = self.identity_quat.clone().detach()
 
+        # 加载装配信息
         self.plug_grasps, self.disassembly_dists = self._load_assembly_info()
+        # 获取课程学习信息
         self.curriculum_height_bound, self.curriculum_height_step = self._get_curriculum_info(self.disassembly_dists)
+        # 加载拆卸数据
         self._load_disassembly_data()
 
-        # Load grasp pose from json files given assembly ID
-        # Grasp pose tensors
+        # 根据装配ID从JSON文件加载抓取姿态
+        # 抓取姿态张量
+        # 手掌到手指中心的偏移量
         self.palm_to_finger_center = (
             torch.tensor([0.0, 0.0, -self.cfg_task.palm_to_finger_dist], device=self.device)
             .unsqueeze(0)
             .repeat(self.num_envs, 1)
         )
+        # 机器人到夹爪的方向变换
         self.robot_to_gripper_quat = (
             torch.tensor([0.0, 1.0, 0.0, 0.0], device=self.device).unsqueeze(0).repeat(self.num_envs, 1)
         )
+        # 插头抓取位置局部坐标
         self.plug_grasp_pos_local = self.plug_grasps[: self.num_envs, :3]
+        # 插头抓取方向局部坐标
         self.plug_grasp_quat_local = torch.roll(self.plug_grasps[: self.num_envs, 3:], -1, 1)
 
-        # Computer body indices.
+        # 计算机体索引
         self.left_finger_body_idx = self._robot.body_names.index("panda_leftfinger")
         self.right_finger_body_idx = self._robot.body_names.index("panda_rightfinger")
         self.fingertip_body_idx = self._robot.body_names.index("panda_fingertip_centered")
 
-        # Tensors for finite-differencing.
-        self.last_update_timestamp = 0.0  # Note: This is for finite differencing body velocities.
+        # 有限差分相关张量
+        # 上次更新时间戳 (用于有限差分计算刚体速度)
+        self.last_update_timestamp = 0.0
+        # 上一时刻指尖位置
         self.prev_fingertip_pos = torch.zeros((self.num_envs, 3), device=self.device)
+        # 上一时刻指尖方向
         self.prev_fingertip_quat = self.identity_quat.clone()
+        # 上一时刻关节位置
         self.prev_joint_pos = torch.zeros((self.num_envs, 7), device=self.device)
 
-        # Keypoint tensors.
+        # 关键点张量
+        # 目标抓取资产基座位置
         self.target_held_base_pos = torch.zeros((self.num_envs, 3), device=self.device)
+        # 目标抓取资产基座方向
         self.target_held_base_quat = self.identity_quat.clone().detach()
 
+        # 计算关键点偏移量
         offsets = self._get_keypoint_offsets(self.cfg_task.num_keypoints)
         self.keypoint_offsets = offsets * self.cfg_task.keypoint_scale
+        # 抓取资产关键点位置
         self.keypoints_held = torch.zeros((self.num_envs, self.cfg_task.num_keypoints, 3), device=self.device)
+        # 固定资产关键点位置
         self.keypoints_fixed = torch.zeros_like(self.keypoints_held, device=self.device)
 
-        # Used to compute target poses.
+        # 用于计算目标姿态的张量
+        # 固定资产成功位置局部坐标
         self.fixed_success_pos_local = torch.zeros((self.num_envs, 3), device=self.device)
         self.fixed_success_pos_local[:, 2] = 0.0
 
+        # 环境成功状态记录
         self.ep_succeeded = torch.zeros((self.num_envs,), dtype=torch.long, device=self.device)
         self.ep_success_times = torch.zeros((self.num_envs,), dtype=torch.long, device=self.device)
 
-        # SBC
+        # 课程学习 (SBC)
         if self.cfg_task.if_sbc:
+            # 如果启用SBC，当前最大位移为课程高度边界的第一列
             self.curr_max_disp = self.curriculum_height_bound[:, 0]
         else:
+            # 如果不启用SBC，当前最大位移为课程高度边界的第二列
             self.curr_max_disp = self.curriculum_height_bound[:, 1]
 
     def _load_assembly_info(self):
-        """Load grasp pose and disassembly distance for plugs in each environment."""
+        """
+        为每个环境中的插头加载抓取姿态和拆卸距离
+        从JSON文件中读取抓取姿态和拆卸距离信息
+        """
 
         retrieve_file_path(self.cfg_task.plug_grasp_json, download_dir="./")
         with open(os.path.basename(self.cfg_task.plug_grasp_json)) as f:
@@ -218,7 +302,10 @@ class AssemblyEnv(DirectRLEnv):
         return torch.as_tensor(plug_grasps).to(self.device), torch.as_tensor(disassembly_dists).to(self.device)
 
     def _get_curriculum_info(self, disassembly_dists):
-        """Calculate the ranges and step sizes for Sampling-based Curriculum (SBC) in each environment."""
+        """
+        计算每个环境中基于采样的课程学习(SBC)的范围和步长
+        根据拆卸距离和配置参数计算课程学习的高度边界和步长
+        """
 
         curriculum_height_bound = torch.zeros((self.num_envs, 2), dtype=torch.float32, device=self.device)
         curriculum_height_step = torch.zeros((self.num_envs, 2), dtype=torch.float32, device=self.device)
@@ -231,7 +318,10 @@ class AssemblyEnv(DirectRLEnv):
         return curriculum_height_bound, curriculum_height_step
 
     def _load_disassembly_data(self):
-        """Load pre-collected disassembly trajectories (end-effector position only)."""
+        """
+        加载预收集的拆卸轨迹（仅包含末端执行器位置）
+        从JSON文件中读取拆卸轨迹数据，用于模仿学习
+        """
 
         retrieve_file_path(self.cfg_task.disassembly_path_json, download_dir="./")
         with open(os.path.basename(self.cfg_task.disassembly_path_json)) as f:
@@ -256,7 +346,10 @@ class AssemblyEnv(DirectRLEnv):
         return keypoint_offsets
 
     def _setup_scene(self):
-        """Initialize simulation scene."""
+        """
+        初始化仿真场景
+        设置地面、桌子、机器人、固定资产和抓取资产，并添加光源
+        """
         spawn_ground_plane(prim_path="/World/ground", cfg=GroundPlaneCfg(), translation=(0.0, 0.0, -0.4))
 
         # spawn a usd file of a table into the scene
@@ -281,7 +374,10 @@ class AssemblyEnv(DirectRLEnv):
         light_cfg.func("/World/Light", light_cfg)
 
     def _compute_intermediate_values(self, dt):
-        """Get values computed from raw tensors. This includes adding noise."""
+        """
+        获取从原始张量计算出的值，包括添加噪声
+        计算固定资产和抓取资产的位置、方向、速度等中间值
+        """
         # TODO: A lot of these can probably only be set once?
         self.fixed_pos = self._fixed_asset.data.root_pos_w - self.scene.env_origins
         self.fixed_quat = self._fixed_asset.data.root_quat_w
@@ -359,7 +455,10 @@ class AssemblyEnv(DirectRLEnv):
         self.last_update_timestamp = self._robot._data._sim_timestamp
 
     def _get_observations(self):
-        """Get actor/critic inputs using asymmetric critic."""
+        """
+        使用非对称评论器获取演员/评论器输入
+        根据配置计算观测值和状态值
+        """
 
         obs_dict = {
             "joint_pos": self.joint_pos[:, 0:7],
@@ -394,11 +493,17 @@ class AssemblyEnv(DirectRLEnv):
         return {"policy": obs_tensors, "critic": state_tensors}
 
     def _reset_buffers(self, env_ids):
-        """Reset buffers."""
+        """
+        重置缓冲区
+        将环境的成功状态重置为0
+        """
         self.ep_succeeded[env_ids] = 0
 
     def _pre_physics_step(self, action):
-        """Apply policy actions with smoothing."""
+        """
+        应用策略动作并进行平滑处理
+        在每个物理步骤之前应用动作，并对动作进行指数移动平均平滑
+        """
         env_ids = self.reset_buf.nonzero(as_tuple=False).squeeze(-1)
         if len(env_ids) > 0:
             self._reset_buffers(env_ids)
@@ -408,7 +513,10 @@ class AssemblyEnv(DirectRLEnv):
         )
 
     def move_gripper_in_place(self, ctrl_target_gripper_dof_pos):
-        """Keep gripper in current position as gripper closes."""
+        """
+        在夹爪闭合时保持夹爪在当前位置
+        通过设置夹爪的目标位置来实现夹爪的闭合控制
+        """
         actions = torch.zeros((self.num_envs, 6), device=self.device)
         ctrl_target_gripper_dof_pos = 0.0
 
@@ -444,7 +552,10 @@ class AssemblyEnv(DirectRLEnv):
         self.generate_ctrl_signals()
 
     def _apply_action(self):
-        """Apply actions for policy as delta targets from current position."""
+        """
+        应用策略动作作为从当前位置的增量目标
+        将策略输出的动作转换为机器人末端执行器的位置和方向目标
+        """
         # Get current yaw for success checking.
         _, _, curr_yaw = torch_utils.get_euler_xyz(self.fingertip_midpoint_quat)
         self.curr_yaw = torch.where(curr_yaw > np.deg2rad(235), curr_yaw - 2 * np.pi, curr_yaw)
@@ -495,13 +606,22 @@ class AssemblyEnv(DirectRLEnv):
         self.generate_ctrl_signals()
 
     def _set_gains(self, prop_gains, rot_deriv_scale=1.0):
-        """Set robot gains using critical damping."""
+        """
+        使用临界阻尼设置机器人增益
+        计算比例增益和导数增益，用于机器人的力控制
+        """
+        # 设置任务比例增益
         self.task_prop_gains = prop_gains
+        # 计算任务导数增益 (临界阻尼)
         self.task_deriv_gains = 2 * torch.sqrt(prop_gains)
+        # 调整旋转导数增益
         self.task_deriv_gains[:, 3:6] /= rot_deriv_scale
 
     def generate_ctrl_signals(self):
-        """Get Jacobian. Set Franka DOF position targets (fingers) or DOF torques (arm)."""
+        """
+        获取雅可比矩阵，设置Franka自由度位置目标（手指）或自由度力矩（手臂）
+        计算关节力矩和施加的外力/力矩，用于控制机器人
+        """
         self.joint_torque, self.applied_wrench = fc.compute_dof_torque(
             cfg=self.cfg,
             dof_pos=self.joint_pos,
@@ -527,13 +647,21 @@ class AssemblyEnv(DirectRLEnv):
         self._robot.set_joint_effort_target(self.joint_torque)
 
     def _get_dones(self):
-        """Update intermediate values used for rewards and observations."""
+        """
+        更新用于奖励和观测的中间值
+        检查是否达到最大episode长度，如果是则结束episode
+        """
+        # 计算中间值
         self._compute_intermediate_values(dt=self.physics_dt)
+        # 检查是否超时
         time_out = self.episode_length_buf >= self.max_episode_length - 1
         return time_out, time_out
 
     def _get_rewards(self):
-        """Update rewards and compute success statistics."""
+        """
+        更新奖励并计算成功统计信息
+        计算当前时间步的奖励值，包括SDF奖励、模仿奖励和成功奖励
+        """
         # Get successful and failed envs at current timestep
 
         curr_successes = automate_algo.check_plug_inserted_in_socket(
@@ -588,7 +716,10 @@ class AssemblyEnv(DirectRLEnv):
         return rew_buf
 
     def _update_rew_buf(self, curr_successes):
-        """Compute reward at current timestep."""
+        """
+        计算当前时间步的奖励
+        根据SDF奖励、模仿奖励和成功奖励计算总奖励
+        """
         rew_dict = dict({})
 
         # SDF-based reward.
@@ -630,7 +761,8 @@ class AssemblyEnv(DirectRLEnv):
 
     def _reset_idx(self, env_ids):
         """
-        We assume all envs will always be reset at the same time.
+        重置环境索引
+        我们假设所有环境将始终同时重置
         """
         super()._reset_idx(env_ids)
 
@@ -656,7 +788,10 @@ class AssemblyEnv(DirectRLEnv):
         )  # (num_envs, num_point_robot_traj, 3)
 
     def _set_assets_to_default_pose(self, env_ids):
-        """Move assets to default pose before randomization."""
+        """
+        在随机化之前将资产移动到默认姿态
+        将抓取资产和固定资产重置到默认位置和方向
+        """
         held_state = self._held_asset.data.default_root_state.clone()[env_ids]
         held_state[:, 0:3] += self.scene.env_origins[env_ids]
         held_state[:, 7:] = 0.0
@@ -672,7 +807,10 @@ class AssemblyEnv(DirectRLEnv):
         self._fixed_asset.reset()
 
     def _move_gripper_to_grasp_pose(self, env_ids):
-        """Define grasp pose for plug and move gripper to pose."""
+        """
+        定义插头的抓取姿态并将夹爪移动到该姿态
+        计算夹爪的目标位置和方向，并移动夹爪到该位置
+        """
 
         gripper_goal_quat, gripper_goal_pos = torch_utils.tf_combine(
             self.held_quat,
@@ -698,7 +836,10 @@ class AssemblyEnv(DirectRLEnv):
         self.step_sim_no_action()
 
     def set_pos_inverse_kinematics(self, env_ids):
-        """Set robot joint position using DLS IK."""
+        """
+        使用DLS逆运动学设置机器人关节位置
+        通过逆运动学计算机器人关节位置，使夹爪达到目标姿态
+        """
         ik_time = 0.0
         while ik_time < 0.50:
             # Compute error to target.
@@ -736,7 +877,10 @@ class AssemblyEnv(DirectRLEnv):
         return pos_error, axis_angle_error
 
     def _set_franka_to_default_pose(self, joints, env_ids):
-        """Return Franka to its default joint position."""
+        """
+        将Franka机器人返回到默认关节位置
+        设置机器人的关节位置和速度到默认值
+        """
         gripper_width = self.gripper_open_width
         joint_pos = self._robot.data.default_joint_pos[env_ids]
         joint_pos[:, 7:] = gripper_width  # MIMIC
@@ -752,13 +896,20 @@ class AssemblyEnv(DirectRLEnv):
         self.step_sim_no_action()
 
     def step_sim_no_action(self):
-        """Step the simulation without an action. Used for resets."""
+        """
+        在没有动作的情况下步进仿真，用于重置
+        执行仿真步骤并更新场景数据
+        """
         self.scene.write_data_to_sim()
         self.sim.step(render=True)
         self.scene.update(dt=self.physics_dt)
         self._compute_intermediate_values(dt=self.physics_dt)
 
     def randomize_fixed_initial_state(self, env_ids):
+        """
+        随机化固定资产的初始状态
+        设置固定资产的位置、方向和速度，并添加观测噪声
+        """
 
         # (1.) Randomize fixed asset pose.
         fixed_state = self._fixed_asset.data.default_root_state.clone()[env_ids]
@@ -797,6 +948,10 @@ class AssemblyEnv(DirectRLEnv):
         self.step_sim_no_action()
 
     def randomize_held_initial_state(self, env_ids, pre_grasp):
+        """
+        随机化抓取资产的初始状态
+        根据课程学习策略设置抓取资产的位置
+        """
 
         curr_curriculum_disp_range = self.curriculum_height_bound[:, 1] - self.curr_max_disp
         if pre_grasp:
@@ -845,7 +1000,10 @@ class AssemblyEnv(DirectRLEnv):
         self.step_sim_no_action()
 
     def randomize_initial_state(self, env_ids):
-        """Randomize initial state and perform any episode-level randomization."""
+        """
+        随机化初始状态并执行任何episode级别的随机化
+        设置资产的初始位置和方向，并执行夹爪的抓取动作
+        """
         # Disable gravity.
         physics_sim_view = sim_utils.SimulationContext.instance().physics_sim_view
         physics_sim_view.set_gravity(carb.Float3(0.0, 0.0, 0.0))

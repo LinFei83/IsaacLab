@@ -3,35 +3,35 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""This script demonstrates how to use the interactive scene interface to setup a scene with multiple prims.
+"""此脚本演示了如何使用交互式场景接口来设置包含多个实体的场景。
 
 .. code-block:: bash
 
-    # Usage
+    # 使用方法
     ./isaaclab.sh -p scripts/tutorials/02_scene/create_scene.py --num_envs 32
 
 """
 
-"""Launch Isaac Sim Simulator first."""
+"""首先启动 Isaac Sim 模拟器。"""
 
 
 import argparse
 
 from isaaclab.app import AppLauncher
 
-# add argparse arguments
-parser = argparse.ArgumentParser(description="Tutorial on using the interactive scene interface.")
-parser.add_argument("--num_envs", type=int, default=2, help="Number of environments to spawn.")
-# append AppLauncher cli args
+# 添加 argparse 参数
+parser = argparse.ArgumentParser(description="交互式场景接口使用教程。")
+parser.add_argument("--num_envs", type=int, default=2, help="要生成的环境数量。")
+# 添加 AppLauncher 命令行参数
 AppLauncher.add_app_launcher_args(parser)
-# parse the arguments
+# 解析参数
 args_cli = parser.parse_args()
 
 # launch omniverse app
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
-"""Rest everything follows."""
+"""接下来是其余的所有内容。"""
 
 import torch
 
@@ -49,79 +49,85 @@ from isaaclab_assets import CARTPOLE_CFG  # isort:skip
 
 @configclass
 class CartpoleSceneCfg(InteractiveSceneCfg):
-    """Configuration for a cart-pole scene."""
+    """推车-摆杆场景的配置。"""
 
-    # ground plane
+    # 地面
     ground = AssetBaseCfg(prim_path="/World/defaultGroundPlane", spawn=sim_utils.GroundPlaneCfg())
 
-    # lights
+    # 灯光
     dome_light = AssetBaseCfg(
         prim_path="/World/Light", spawn=sim_utils.DomeLightCfg(intensity=3000.0, color=(0.75, 0.75, 0.75))
     )
 
-    # articulation
+    # 对于需要在多个环境中复制的物体（如机器人），其 prim_path（路径）应包含 {ENV_REGEX_NS} 占位符。
+    # 而没有这个占位符的物体（如灯光）则会被所有环境共享。
     cartpole: ArticulationCfg = CARTPOLE_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
 
 def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
-    """Runs the simulation loop."""
-    # Extract scene entities
-    # note: we only do this here for readability.
+    """运行模拟循环。"""
+    # 提取场景实体
+    # 注意：我们在这里这样做只是为了提高可读性。
+    # 可以通过类似字典的方式，使用在配置类中定义的变量名作为键来访问场景中的特定物体。
     robot = scene["cartpole"]
-    # Define simulation stepping
+    # 定义模拟步长
     sim_dt = sim.get_physics_dt()
     count = 0
-    # Simulation loop
+    # 模拟循环
     while simulation_app.is_running():
-        # Reset
+        # 重置
         if count % 500 == 0:
-            # reset counter
+            # 重置计数器
             count = 0
-            # reset the scene entities
-            # root state
-            # we offset the root state by the origin since the states are written in simulation world frame
-            # if this is not done, then the robots will be spawned at the (0, 0, 0) of the simulation world
+            # 重置场景实体
+            # 根状态
+            # 我们通过原点偏移根状态，因为状态是在模拟世界坐标系中编写的
+            # 如果不这样做，机器人将在模拟世界的 (0, 0, 0) 处生成
             root_state = robot.data.default_root_state.clone()
             root_state[:, :3] += scene.env_origins
             robot.write_root_pose_to_sim(root_state[:, :7])
             robot.write_root_velocity_to_sim(root_state[:, 7:])
-            # set joint positions with some noise
+            # 设置带有一些噪声的关节位置
             joint_pos, joint_vel = robot.data.default_joint_pos.clone(), robot.data.default_joint_vel.clone()
             joint_pos += torch.rand_like(joint_pos) * 0.1
             robot.write_joint_state_to_sim(joint_pos, joint_vel)
-            # clear internal buffers
+            # 清除内部缓冲区
+            # 不再对单个机器人调用 reset(), update() 等方法，而是直接对整个 scene 对象进行操作。
+            # scene.reset()：重置场景中所有可重置的物体。
             scene.reset()
-            print("[INFO]: Resetting robot state...")
-        # Apply random action
-        # -- generate random joint efforts
+            print("[INFO]: 重置机器人状态...")
+        # 应用随机动作
+        # -- 生成随机关节力
         efforts = torch.randn_like(robot.data.joint_pos) * 5.0
-        # -- apply action to the robot
+        # -- 将动作应用到机器人
         robot.set_joint_effort_target(efforts)
-        # -- write data to sim
+        # -- 将数据写入模拟器
         scene.write_data_to_sim()
-        # Perform step
+        # 执行步进
         sim.step()
-        # Increment counter
+        # 增加计数器
         count += 1
-        # Update buffers
+        # 更新缓冲区
         scene.update(sim_dt)
 
 
 def main():
-    """Main function."""
-    # Load kit helper
+    """主函数。"""
+    # 加载 kit 辅助工具
     sim_cfg = sim_utils.SimulationCfg(device=args_cli.device)
     sim = SimulationContext(sim_cfg)
-    # Set main camera
+    # 设置主摄像头视角
     sim.set_camera_view([2.5, 0.0, 4.0], [0.0, 0.0, 2.0])
-    # Design scene
+    # 设计场景
+    # 首先创建场景配置类的实例，并传入参数，如环境数量 num_envs 和环境间距 env_spacing
     scene_cfg = CartpoleSceneCfg(num_envs=args_cli.num_envs, env_spacing=2.0)
+    # 然后，将这个配置对象传递给 InteractiveScene 的构造函数来创建场景实
     scene = InteractiveScene(scene_cfg)
-    # Play the simulator
+    # 启动模拟器
     sim.reset()
-    # Now we are ready!
-    print("[INFO]: Setup complete...")
-    # Run the simulator
+    # 现在我们准备好了！
+    print("[INFO]: 设置完成...")
+    # 运行模拟器
     run_simulator(sim, scene)
 
 

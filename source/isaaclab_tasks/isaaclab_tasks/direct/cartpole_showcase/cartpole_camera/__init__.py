@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-Cartpole balancing environment with camera.
+带摄像头的倒立摆平衡环境。
 """
 
 import gymnasium as gym
@@ -12,11 +12,11 @@ import gymnasium as gym
 from . import agents
 
 ###########################
-# Register Gym environments
+# 注册 Gym 环境
 ###########################
 
 ###
-# Observation space as Box
+# 观测空间为 Box 类型
 ###
 
 gym.register(
@@ -50,7 +50,7 @@ gym.register(
 )
 
 ###
-# Observation space as Dict
+# 观测空间为 Dict 类型
 ###
 
 gym.register(
@@ -84,7 +84,7 @@ gym.register(
 )
 
 ###
-# Observation space as Tuple
+# 观测空间为 Tuple 类型
 ###
 
 gym.register(

@@ -4,17 +4,17 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-This script demonstrates how to generate log outputs while the simulation plays.
-It accompanies the tutorial on docker usage.
+本脚本演示了在模拟运行时如何生成日志输出。
+它附带了 Docker 使用教程。
 
 .. code-block:: bash
 
-    # Usage
+    # 使用方法
     ./isaaclab.sh -p scripts/tutorials/00_sim/log_time.py
 
 """
 
-"""Launch Isaac Sim Simulator first."""
+"""首先启动 Isaac Sim 模拟器。"""
 
 
 import argparse
@@ -22,63 +22,63 @@ import os
 
 from isaaclab.app import AppLauncher
 
-# create argparser
-parser = argparse.ArgumentParser(description="Tutorial on creating logs from within the docker container.")
-# append AppLauncher cli args
+# 创建参数解析器
+parser = argparse.ArgumentParser(description="教程：从 Docker 容器内部创建日志。")
+# 添加 AppLauncher 命令行参数
 AppLauncher.add_app_launcher_args(parser)
-# parse the arguments
+# 解析参数
 args_cli = parser.parse_args()
-# launch omniverse app
+# 启动 Omniverse 应用
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
-"""Rest everything follows."""
+"""其余代码如下。"""
 
 from isaaclab.sim import SimulationCfg, SimulationContext
 
 
 def main():
-    """Main function."""
-    # Specify that the logs must be in logs/docker_tutorial
+    """主函数。"""
+    # 指定日志必须存储在 logs/docker_tutorial 目录中
     log_dir_path = os.path.join("logs")
     if not os.path.isdir(log_dir_path):
         os.mkdir(log_dir_path)
-    # In the container, the absolute path will be
-    # /workspace/isaaclab/logs/docker_tutorial, because
-    # all python execution is done through /workspace/isaaclab/isaaclab.sh
-    # and the calling process' path will be /workspace/isaaclab
+    # 在容器中，绝对路径将是
+    # /workspace/isaaclab/logs/docker_tutorial，因为
+    # 所有 Python 执行都是通过 /workspace/isaaclab/isaaclab.sh 完成的
+    # 调用进程的路径将是 /workspace/isaaclab
     log_dir_path = os.path.abspath(os.path.join(log_dir_path, "docker_tutorial"))
     if not os.path.isdir(log_dir_path):
         os.mkdir(log_dir_path)
-    print(f"[INFO] Logging experiment to directory: {log_dir_path}")
+    print(f"[INFO] 将实验日志记录到目录: {log_dir_path}")
 
-    # Initialize the simulation context
+    # 初始化模拟上下文
     sim_cfg = SimulationCfg(dt=0.01)
     sim = SimulationContext(sim_cfg)
-    # Set main camera
+    # 设置主相机视角
     sim.set_camera_view([2.5, 2.5, 2.5], [0.0, 0.0, 0.0])
 
-    # Play the simulator
+    # 播放模拟器
     sim.reset()
-    # Now we are ready!
-    print("[INFO]: Setup complete...")
+    # 现在我们准备好了！
+    print("[INFO]: 设置完成...")
 
-    # Prepare to count sim_time
+    # 准备计算模拟时间
     sim_dt = sim.get_physics_dt()
     sim_time = 0.0
 
-    # Open logging file
+    # 打开日志文件
     with open(os.path.join(log_dir_path, "log.txt"), "w") as log_file:
-        # Simulate physics
+        # 模拟物理过程
         while simulation_app.is_running():
             log_file.write(f"{sim_time}" + "\n")
-            # perform step
+            # 执行一步模拟
             sim.step()
             sim_time += sim_dt
 
 
 if __name__ == "__main__":
-    # run the main function
+    # 运行主函数
     main()
-    # close sim app
+    # 关闭模拟应用
     simulation_app.close()

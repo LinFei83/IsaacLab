@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-Cartpole balancing environment.
+倒立摆平衡环境。
 """
 
 import gymnasium as gym
@@ -12,11 +12,11 @@ import gymnasium as gym
 from . import agents
 
 ###########################
-# Register Gym environments
+# 注册 Gym 环境
 ###########################
 
 ###
-# Observation space as Box
+# 观察空间为 Box 类型
 ###
 
 gym.register(
@@ -50,7 +50,7 @@ gym.register(
 )
 
 ###
-# Observation space as Discrete
+# 观察空间为 Discrete 类型
 ###
 
 gym.register(
@@ -84,7 +84,7 @@ gym.register(
 )
 
 ###
-# Observation space as MultiDiscrete
+# 观察空间为 MultiDiscrete 类型
 ###
 
 gym.register(
@@ -118,7 +118,7 @@ gym.register(
 )
 
 ###
-# Observation space as Dict
+# 观察空间为 Dict 类型
 ###
 
 gym.register(
@@ -152,7 +152,7 @@ gym.register(
 )
 
 ###
-# Observation space as Tuple
+# 观察空间为 Tuple 类型
 ###
 
 gym.register(

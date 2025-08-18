@@ -4,40 +4,38 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-This script demonstrates the environment for a quadruped robot with height-scan sensor.
+本脚本演示了带有高度扫描传感器的四足机器人环境。
 
-In this example, we use a locomotion policy to control the robot. The robot is commanded to
-move forward at a constant velocity. The height-scan sensor is used to detect the height of
-the terrain.
+在此示例中，我们使用运动策略来控制机器人。机器人被命令以恒定速度向前移动。高度扫描传感器用于检测地形的高度。
 
 .. code-block:: bash
 
-    # Run the script
+    # 运行脚本
     ./isaaclab.sh -p scripts/tutorials/03_envs/create_quadruped_base_env.py --num_envs 32
 
 """
 
-"""Launch Isaac Sim Simulator first."""
+"""首先启动 Isaac Sim 模拟器。"""
 
 
 import argparse
 
 from isaaclab.app import AppLauncher
 
-# add argparse arguments
-parser = argparse.ArgumentParser(description="Tutorial on creating a quadruped base environment.")
-parser.add_argument("--num_envs", type=int, default=64, help="Number of environments to spawn.")
+# 添加 argparse 参数
+parser = argparse.ArgumentParser(description="教程：创建四足机器人基础环境。")
+parser.add_argument("--num_envs", type=int, default=64, help="要生成的环境数量。")
 
-# append AppLauncher cli args
+# 添加 AppLauncher cli 参数
 AppLauncher.add_app_launcher_args(parser)
-# parse the arguments
+# 解析参数
 args_cli = parser.parse_args()
 
-# launch omniverse app
+# 启动 omniverse 应用
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
-"""Rest everything follows."""
+"""接下来的所有内容。"""
 
 import torch
 
@@ -57,32 +55,31 @@ from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR, check_file_path, read_fi
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
 ##
-# Pre-defined configs
+# 预定义配置
 ##
 from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 from isaaclab_assets.robots.anymal import ANYMAL_C_CFG  # isort: skip
 
 
 ##
-# Custom observation terms
+# 自定义观测项
 ##
 
-
 def constant_commands(env: ManagerBasedEnv) -> torch.Tensor:
-    """The generated command from the command generator."""
+    """从命令生成器生成的命令。"""
+    # 返回一个恒定的前进速度命令 [1, 0, 0]，表示x方向速度为1，y方向和角速度为0
     return torch.tensor([[1, 0, 0]], device=env.device).repeat(env.num_envs, 1)
 
 
 ##
-# Scene definition
+# 场景定义
 ##
-
 
 @configclass
 class MySceneCfg(InteractiveSceneCfg):
-    """Example scene configuration."""
+    """示例场景配置。"""
 
-    # add terrain
+    # 添加地形
     terrain = TerrainImporterCfg(
         prim_path="/World/ground",
         terrain_type="generator",
@@ -98,10 +95,11 @@ class MySceneCfg(InteractiveSceneCfg):
         debug_vis=False,
     )
 
-    # add robot
+    # 添加机器人
     robot: ArticulationCfg = ANYMAL_C_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
 
-    # sensors
+    # 传感器
+    # 高度扫描仪，用于检测地形高度
     height_scanner = RayCasterCfg(
         prim_path="{ENV_REGEX_NS}/Robot/base",
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
@@ -111,7 +109,7 @@ class MySceneCfg(InteractiveSceneCfg):
         mesh_prim_paths=["/World/ground"],
     )
 
-    # lights
+    # 灯光
     light = AssetBaseCfg(
         prim_path="/World/light",
         spawn=sim_utils.DistantLightCfg(color=(0.75, 0.75, 0.75), intensity=3000.0),
@@ -119,36 +117,44 @@ class MySceneCfg(InteractiveSceneCfg):
 
 
 ##
-# MDP settings
+# MDP 设置
 ##
-
 
 @configclass
 class ActionsCfg:
-    """Action specifications for the MDP."""
+    """MDP的动作规范。"""
 
+    # 关节位置控制，控制机器人的所有关节
     joint_pos = mdp.JointPositionActionCfg(asset_name="robot", joint_names=[".*"], scale=0.5, use_default_offset=True)
 
 
 @configclass
 class ObservationsCfg:
-    """Observation specifications for the MDP."""
+    """MDP的观测规范。"""
 
     @configclass
     class PolicyCfg(ObsGroup):
-        """Observations for policy group."""
+        """策略组的观测。"""
 
-        # observation terms (order preserved)
+        # 观测项（保持顺序）
+        # 基座线速度
         base_lin_vel = ObsTerm(func=mdp.base_lin_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
+        # 基座角速度
         base_ang_vel = ObsTerm(func=mdp.base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
+        # 投影重力
         projected_gravity = ObsTerm(
             func=mdp.projected_gravity,
             noise=Unoise(n_min=-0.05, n_max=0.05),
         )
+        # 速度命令
         velocity_commands = ObsTerm(func=constant_commands)
+        # 相对关节位置
         joint_pos = ObsTerm(func=mdp.joint_pos_rel, noise=Unoise(n_min=-0.01, n_max=0.01))
+        # 相对关节速度
         joint_vel = ObsTerm(func=mdp.joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5))
+        # 上一时刻的动作
         actions = ObsTerm(func=mdp.last_action)
+        # 高度扫描数据
         height_scan = ObsTerm(
             func=mdp.height_scan,
             params={"sensor_cfg": SceneEntityCfg("height_scanner")},
@@ -160,86 +166,86 @@ class ObservationsCfg:
             self.enable_corruption = True
             self.concatenate_terms = True
 
-    # observation groups
+    # 观测组
     policy: PolicyCfg = PolicyCfg()
 
 
 @configclass
 class EventCfg:
-    """Configuration for events."""
+    """事件配置。"""
 
+    # 重置场景到默认状态
     reset_scene = EventTerm(func=mdp.reset_scene_to_default, mode="reset")
 
 
 ##
-# Environment configuration
+# 环境配置
 ##
-
 
 @configclass
 class QuadrupedEnvCfg(ManagerBasedEnvCfg):
-    """Configuration for the locomotion velocity-tracking environment."""
+    """运动速度跟踪环境的配置。"""
 
-    # Scene settings
+    # 场景设置
     scene: MySceneCfg = MySceneCfg(num_envs=args_cli.num_envs, env_spacing=2.5)
-    # Basic settings
+    # 基本设置
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
     events: EventCfg = EventCfg()
 
     def __post_init__(self):
-        """Post initialization."""
-        # general settings
-        self.decimation = 4  # env decimation -> 50 Hz control
-        # simulation settings
-        self.sim.dt = 0.005  # simulation timestep -> 200 Hz physics
+        """后初始化。"""
+        # 常规设置
+        self.decimation = 4  # 环境减速 -> 50 Hz 控制
+        # 仿真设置
+        self.sim.dt = 0.005  # 仿真时间步长 -> 200 Hz 物理
         self.sim.physics_material = self.scene.terrain.physics_material
         self.sim.device = args_cli.device
-        # update sensor update periods
-        # we tick all the sensors based on the smallest update period (physics update period)
+        # 更新传感器更新周期
+        # 我们根据最小更新周期（物理更新周期）来触发所有传感器
         if self.scene.height_scanner is not None:
             self.scene.height_scanner.update_period = self.decimation * self.sim.dt  # 50 Hz
 
 
 def main():
-    """Main function."""
-    # setup base environment
+    """主函数。"""
+    # 设置基础环境
     env_cfg = QuadrupedEnvCfg()
     env = ManagerBasedEnv(cfg=env_cfg)
 
-    # load level policy
+    # 加载预训练策略
     policy_path = ISAACLAB_NUCLEUS_DIR + "/Policies/ANYmal-C/HeightScan/policy.pt"
-    # check if policy file exists
+    # 检查策略文件是否存在
     if not check_file_path(policy_path):
-        raise FileNotFoundError(f"Policy file '{policy_path}' does not exist.")
+        raise FileNotFoundError(f"策略文件 '{policy_path}' 不存在。")
     file_bytes = read_file(policy_path)
-    # jit load the policy
+    # jit 加载策略
     policy = torch.jit.load(file_bytes).to(env.device).eval()
 
-    # simulate physics
+    # 模拟物理
     count = 0
     obs, _ = env.reset()
     while simulation_app.is_running():
         with torch.inference_mode():
-            # reset
+            # 重置
             if count % 1000 == 0:
                 obs, _ = env.reset()
                 count = 0
                 print("-" * 80)
-                print("[INFO]: Resetting environment...")
-            # infer action
+                print("[INFO]: 正在重置环境...")
+            # 推理动作
             action = policy(obs["policy"])
-            # step env
+            # 执行环境步骤
             obs, _ = env.step(action)
-            # update counter
+            # 更新计数器
             count += 1
 
-    # close the environment
+    # 关闭环境
     env.close()
 
 
 if __name__ == "__main__":
-    # run the main function
+    # 运行主函数
     main()
-    # close sim app
+    # 关闭模拟应用
     simulation_app.close()

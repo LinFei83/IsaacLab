@@ -16,7 +16,7 @@ from isaaclab.terrains import TerrainImporterCfg
 from isaaclab.utils import configclass
 
 ##
-# Pre-defined configs
+# 预定义配置
 ##
 from isaaclab_assets.robots.anymal import ANYMAL_C_CFG  # isort: skip
 from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
@@ -24,7 +24,7 @@ from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG  # isort: skip
 
 @configclass
 class EventCfg:
-    """Configuration for randomization."""
+    """随机化配置。"""
 
     physics_material = EventTerm(
         func=mdp.randomize_rigid_body_material,
@@ -51,7 +51,7 @@ class EventCfg:
 
 @configclass
 class AnymalCFlatEnvCfg(DirectRLEnvCfg):
-    # env
+    # 环境配置
     episode_length_s = 20.0
     decimation = 4
     action_scale = 0.5
@@ -59,7 +59,7 @@ class AnymalCFlatEnvCfg(DirectRLEnvCfg):
     observation_space = 48
     state_space = 0
 
-    # simulation
+    # 仿真配置
     sim: SimulationCfg = SimulationCfg(
         dt=1 / 200,
         render_interval=decimation,
@@ -85,19 +85,19 @@ class AnymalCFlatEnvCfg(DirectRLEnvCfg):
         debug_vis=False,
     )
 
-    # scene
+    # 场景配置
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=4096, env_spacing=4.0, replicate_physics=True)
 
-    # events
+    # 事件配置
     events: EventCfg = EventCfg()
 
-    # robot
+    # 机器人配置
     robot: ArticulationCfg = ANYMAL_C_CFG.replace(prim_path="/World/envs/env_.*/Robot")
     contact_sensor: ContactSensorCfg = ContactSensorCfg(
         prim_path="/World/envs/env_.*/Robot/.*", history_length=3, update_period=0.005, track_air_time=True
     )
 
-    # reward scales
+    # 奖励缩放系数
     lin_vel_reward_scale = 1.0
     yaw_rate_reward_scale = 0.5
     z_vel_reward_scale = -2.0
@@ -112,7 +112,7 @@ class AnymalCFlatEnvCfg(DirectRLEnvCfg):
 
 @configclass
 class AnymalCRoughEnvCfg(AnymalCFlatEnvCfg):
-    # env
+    # 环境配置
     observation_space = 235
 
     terrain = TerrainImporterCfg(
@@ -134,7 +134,7 @@ class AnymalCRoughEnvCfg(AnymalCFlatEnvCfg):
         debug_vis=False,
     )
 
-    # we add a height scanner for perceptive locomotion
+    # 为感知运动添加高度扫描仪
     height_scanner = RayCasterCfg(
         prim_path="/World/envs/env_.*/Robot/base",
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
@@ -144,5 +144,5 @@ class AnymalCRoughEnvCfg(AnymalCFlatEnvCfg):
         mesh_prim_paths=["/World/ground"],
     )
 
-    # reward scales (override from flat config)
+    # 奖励缩放系数（覆盖平面配置）
     flat_orientation_reward_scale = 0.0

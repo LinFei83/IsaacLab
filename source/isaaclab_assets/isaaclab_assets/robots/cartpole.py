@@ -1,9 +1,9 @@
 # Copyright (c) 2022-2025, The Isaac Lab Project Developers (https://github.com/isaac-sim/IsaacLab/blob/main/CONTRIBUTORS.md).
-# All rights reserved.
+# 版权所有。
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Configuration for a simple Cartpole robot."""
+"""一个简单的 Cartpole 机器人的配置。"""
 
 
 import isaaclab.sim as sim_utils
@@ -12,7 +12,7 @@ from isaaclab.assets import ArticulationCfg
 from isaaclab.utils.assets import ISAACLAB_NUCLEUS_DIR
 
 ##
-# Configuration
+# 配置
 ##
 
 CARTPOLE_CFG = ArticulationCfg(
@@ -48,4 +48,4 @@ CARTPOLE_CFG = ArticulationCfg(
         ),
     },
 )
-"""Configuration for a simple Cartpole robot."""
+"""一个简单的 Cartpole 机器人的配置。"""

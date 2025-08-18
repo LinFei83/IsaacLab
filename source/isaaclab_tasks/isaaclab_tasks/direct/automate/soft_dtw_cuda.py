@@ -39,30 +39,30 @@ from numba import cuda, jit, prange
 @cuda.jit
 def compute_softdtw_cuda(D, gamma, bandwidth, max_i, max_j, n_passes, R):
     """
-    :param seq_len: The length of the sequence (both inputs are assumed to be of the same size)
-    :param n_passes: 2 * seq_len - 1 (The number of anti-diagonals)
+    :param seq_len: 序列的长度（假设两个输入的大小相同）
+    :param n_passes: 2 * seq_len - 1（反对角线的数量）
     """
-    # Each block processes one pair of examples
+    # 每个块处理一对示例
     b = cuda.blockIdx.x
-    # We have as many threads as seq_len, because the most number of threads we need
-    # is equal to the number of elements on the largest anti-diagonal
+    # 我们的线程数与seq_len相同，因为我们所需的最多线程数
+    # 等于最大反对角线上的元素数量
     tid = cuda.threadIdx.x
 
     inv_gamma = 1.0 / gamma
 
-    # Go over each anti-diagonal. Only process threads that fall on the current on the anti-diagonal
+    # 遍历每个反对角线。只处理落在当前反对角线上的线程
     for p in range(n_passes):
 
-        # The index is actually 'p - tid' but need to force it in-bounds
+        # 索引实际上是'p - tid'，但需要强制使其在边界内
         J = max(0, min(p - tid, max_j - 1))
 
-        # For simplicity, we define i, j which start from 1 (offset from I, J)
+        # 为了简化，我们定义从1开始的i, j（相对于I, J的偏移）
         i = tid + 1
         j = J + 1
 
-        # Only compute if element[i, j] is on the current anti-diagonal, and also is within bounds
+        # 仅当元素[i, j]在当前反对角线上且在边界内时才计算
         if tid + J == p and (tid < max_i and J < max_j):
-            # Don't compute if outside bandwidth
+            # 如果在带宽外则不计算
             if not (abs(i - j) > bandwidth > 0):
                 r0 = -R[b, i - 1, j - 1] * inv_gamma
                 r1 = -R[b, i - 1, j] * inv_gamma
@@ -72,7 +72,7 @@ def compute_softdtw_cuda(D, gamma, bandwidth, max_i, max_j, n_passes, R):
                 softmin = -gamma * (math.log(rsum) + rmax)
                 R[b, i, j] = D[b, i - 1, j - 1] + softmin
 
-        # Wait for other threads in this block
+        # 等待此块中的其他线程
         cuda.syncthreads()
 
 
@@ -82,41 +82,41 @@ def compute_softdtw_backward_cuda(D, R, inv_gamma, bandwidth, max_i, max_j, n_pa
     k = cuda.blockIdx.x
     tid = cuda.threadIdx.x
 
-    # Indexing logic is the same as above, however, the anti-diagonal needs to
-    # progress backwards
+    # 索引逻辑与上述相同，但是反对角线需要
+    # 反向进行
 
     for p in range(n_passes):
-        # Reverse the order to make the loop go backward
+        # 反转顺序使循环向后进行
         rev_p = n_passes - p - 1
 
-        # convert tid to I, J, then i, j
+        # 将tid转换为I, J，然后是i, j
         J = max(0, min(rev_p - tid, max_j - 1))
 
         i = tid + 1
         j = J + 1
 
-        # Only compute if element[i, j] is on the current anti-diagonal, and also is within bounds
+        # 仅当元素[i, j]在当前反对角线上且在边界内时才计算
         if tid + J == rev_p and (tid < max_i and J < max_j):
 
             if math.isinf(R[k, i, j]):
                 R[k, i, j] = -math.inf
 
-            # Don't compute if outside bandwidth
+            # 如果在带宽外则不计算
             if not (abs(i - j) > bandwidth > 0):
                 a = math.exp((R[k, i + 1, j] - R[k, i, j] - D[k, i + 1, j]) * inv_gamma)
                 b = math.exp((R[k, i, j + 1] - R[k, i, j] - D[k, i, j + 1]) * inv_gamma)
                 c = math.exp((R[k, i + 1, j + 1] - R[k, i, j] - D[k, i + 1, j + 1]) * inv_gamma)
                 E[k, i, j] = E[k, i + 1, j] * a + E[k, i, j + 1] * b + E[k, i + 1, j + 1] * c
 
-        # Wait for other threads in this block
+        # 等待此块中的其他线程
         cuda.syncthreads()
 
 
 # ----------------------------------------------------------------------------------------------------------------------
 class _SoftDTWCUDA(Function):
     """
-    CUDA implementation is inspired by the diagonal one proposed in https://ieeexplore.ieee.org/document/8400444:
-    "Developing a pattern discovery method in time series data and its GPU acceleration"
+    CUDA实现灵感来源于https://ieeexplore.ieee.org/document/8400444中提出的对角线方法:
+    "在时间序列数据中开发模式发现方法及其GPU加速"
     """
 
     @staticmethod
@@ -132,13 +132,13 @@ class _SoftDTWCUDA(Function):
         threads_per_block = max(N, M)
         n_passes = 2 * threads_per_block - 1
 
-        # Prepare the output array
+        # 准备输出数组
         R = torch.ones((B, N + 2, M + 2), device=dev, dtype=dtype) * math.inf
         R[:, 0, 0] = 0
 
-        # Run the CUDA kernel.
-        # Set CUDA's grid size to be equal to the batch size (every CUDA block processes one sample pair)
-        # Set the CUDA block size to be equal to the length of the longer sequence (equal to the size of the largest diagonal)
+        # 运行CUDA内核。
+        # 设置CUDA的网格大小等于批处理大小（每个CUDA块处理一对样本）
+        # 设置CUDA块大小等于较长序列的长度（等于最大对角线的大小）
         compute_softdtw_cuda[B, threads_per_block](
             cuda.as_cuda_array(D.detach()), gamma.item(), bandwidth.item(), N, M, n_passes, cuda.as_cuda_array(R)
         )
@@ -184,9 +184,9 @@ class _SoftDTWCUDA(Function):
 
 # ----------------------------------------------------------------------------------------------------------------------
 #
-# The following is the CPU implementation based on https://github.com/Sleepwalking/pytorch-softdtw
-# Credit goes to Kanru Hua.
-# I've added support for batching and pruning.
+# 以下是基于https://github.com/Sleepwalking/pytorch-softdtw的CPU实现
+# 版权归Kanru Hua所有。
+# 我添加了对批处理和剪枝的支持。
 #
 # ----------------------------------------------------------------------------------------------------------------------
 @jit(nopython=True, parallel=True)
@@ -251,7 +251,7 @@ def compute_softdtw_backward(D_, R, gamma, bandwidth):
 # ----------------------------------------------------------------------------------------------------------------------
 class _SoftDTW(Function):
     """
-    CPU implementation based on https://github.com/Sleepwalking/pytorch-softdtw
+    基于https://github.com/Sleepwalking/pytorch-softdtw的CPU实现
     """
 
     @staticmethod
@@ -283,18 +283,18 @@ class _SoftDTW(Function):
 # ----------------------------------------------------------------------------------------------------------------------
 class SoftDTW(torch.nn.Module):
     """
-    The soft DTW implementation that optionally supports CUDA
+    可选择支持CUDA的软DTW实现
     """
 
     def __init__(self, use_cuda, gamma=1.0, normalize=False, bandwidth=None, dist_func=None):
         """
-        Initializes a new instance using the supplied parameters
-        :param use_cuda: Flag indicating whether the CUDA implementation should be used
-        :param gamma: sDTW's gamma parameter
-        :param normalize: Flag indicating whether to perform normalization
-                          (as discussed in https://github.com/mblondel/soft-dtw/issues/10#issuecomment-383564790)
-        :param bandwidth: Sakoe-Chiba bandwidth for pruning. Passing 'None' will disable pruning.
-        :param dist_func: Optional point-wise distance function to use. If 'None', then a default Euclidean distance function will be used.
+        使用提供的参数初始化新实例
+        :param use_cuda: 指示是否应使用CUDA实现的标志
+        :param gamma: sDTW的gamma参数
+        :param normalize: 指示是否执行归一化的标志
+                          (如在https://github.com/mblondel/soft-dtw/issues/10#issuecomment-383564790中讨论的)
+        :param bandwidth: 用于剪枝的Sakoe-Chiba带宽。传递'None'将禁用剪枝。
+        :param dist_func: 可选的逐点距离函数。如果为'None'，则将使用默认的欧几里得距离函数。
         """
         super().__init__()
         self.normalize = normalize
@@ -310,7 +310,7 @@ class SoftDTW(torch.nn.Module):
 
     def _get_func_dtw(self, x, y):
         """
-        Checks the inputs and selects the proper implementation to use.
+        检查输入并选择要使用的适当实现。
         """
         bx, lx, dx = x.shape
         by, ly, dy = y.shape
@@ -332,7 +332,7 @@ class SoftDTW(torch.nn.Module):
     @staticmethod
     def _euclidean_dist_func(x, y):
         """
-        Calculates the Euclidean distance between each element in x and y per timestep
+        计算x和y中每个元素在每个时间步上的欧几里得距离
         """
         n = x.size(1)
         m = y.size(1)
@@ -343,10 +343,10 @@ class SoftDTW(torch.nn.Module):
 
     def forward(self, X, Y):
         """
-        Compute the soft-DTW value between X and Y
-        :param X: One batch of examples, batch_size x seq_len x dims
-        :param Y: The other batch of examples, batch_size x seq_len x dims
-        :return: The computed results
+        计算X和Y之间的软DTW值
+        :param X: 一批示例, batch_size x seq_len x dims
+        :param Y: 另一批示例, batch_size x seq_len x dims
+        :return: 计算结果
         """
 
         # Check the inputs and get the correct implementation
@@ -368,14 +368,14 @@ class SoftDTW(torch.nn.Module):
 # ----------------------------------------------------------------------------------------------------------------------
 def timed_run(a, b, sdtw):
     """
-    Runs a and b through sdtw, and times the forward and backward passes.
-    Assumes that a requires gradients.
-    :return: timing, forward result, backward result
+    通过sdtw运行a和b，并计时前向和反向传递。
+    假设a需要梯度。
+    :return: 计时, 前向结果, 反向结果
     """
 
     from timeit import default_timer as timer
 
-    # Forward pass
+    # 前向传递
     start = timer()
     forward = sdtw(a, b)
     end = timer()
@@ -383,12 +383,12 @@ def timed_run(a, b, sdtw):
 
     grad_outputs = torch.ones_like(forward)
 
-    # Backward
+    # 反向传递
     start = timer()
     grads = torch.autograd.grad(forward, a, grad_outputs=grad_outputs)[0]
     end = timer()
 
-    # Total time
+    # 总时间
     t += end - start
 
     return t, forward, grads
@@ -401,7 +401,7 @@ def profile(batch_size, seq_len_a, seq_len_b, dims, tol_backward):
     n_iters = 6
 
     print(
-        "Profiling forward() + backward() times for batch_size={}, seq_len_a={}, seq_len_b={}, dims={}...".format(
+        "为batch_size={}, seq_len_a={}, seq_len_b={}, dims={}分析forward() + backward()时间...".format(
             batch_size, seq_len_a, seq_len_b, dims
         )
     )
@@ -421,22 +421,22 @@ def profile(batch_size, seq_len_a, seq_len_b, dims, tol_backward):
         # CPU
         t_cpu, forward_cpu, backward_cpu = timed_run(a_cpu, b_cpu, sdtw)
 
-        # Verify the results
+        # 验证结果
         assert torch.allclose(forward_cpu, forward_gpu.cpu())
         assert torch.allclose(backward_cpu, backward_gpu.cpu(), atol=tol_backward)
 
         if (
             i > 0
-        ):  # Ignore the first time we run, in case this is a cold start (because timings are off at a cold start of the script)
+        ):  # 忽略第一次运行，以防这是冷启动（因为脚本冷启动时计时不准）
             times_cpu += [t_cpu]
             times_gpu += [t_gpu]
 
-    # Average and log
+    # 平均并记录
     avg_cpu = np.mean(times_cpu)
     avg_gpu = np.mean(times_gpu)
     print("  CPU:     ", avg_cpu)
     print("  GPU:     ", avg_gpu)
-    print("  Speedup: ", avg_cpu / avg_gpu)
+    print("  加速比: ", avg_cpu / avg_gpu)
     print()
 
 

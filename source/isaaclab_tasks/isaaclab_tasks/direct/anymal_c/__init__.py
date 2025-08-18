@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-Ant locomotion environment.
+ANYmal C 四足机器人运动环境。
 """
 
 import gymnasium as gym
@@ -12,7 +12,7 @@ import gymnasium as gym
 from . import agents
 
 ##
-# Register Gym environments.
+# 注册 Gym 环境。
 ##
 
 gym.register(

@@ -4,38 +4,38 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """
-This script demonstrates how to use the differential inverse kinematics controller with the simulator.
+该脚本演示了如何在模拟器中使用微分逆运动学控制器。
 
-The differential IK controller can be configured in different modes. It uses the Jacobians computed by
-PhysX. This helps perform parallelized computation of the inverse kinematics.
+微分IK控制器可以配置为不同的模式。它使用PhysX计算的雅可比矩阵。
+这有助于执行逆运动学的并行化计算。
 
 .. code-block:: bash
 
-    # Usage
+    # 使用方法
     ./isaaclab.sh -p scripts/tutorials/05_controllers/run_diff_ik.py
 
 """
 
-"""Launch Isaac Sim Simulator first."""
+"""首先启动Isaac Sim模拟器。"""
 
 import argparse
 
 from isaaclab.app import AppLauncher
 
-# add argparse arguments
-parser = argparse.ArgumentParser(description="Tutorial on using the differential IK controller.")
-parser.add_argument("--robot", type=str, default="franka_panda", help="Name of the robot.")
-parser.add_argument("--num_envs", type=int, default=128, help="Number of environments to spawn.")
-# append AppLauncher cli args
+# 添加命令行参数
+parser = argparse.ArgumentParser(description="微分IK控制器使用教程。")
+parser.add_argument("--robot", type=str, default="franka_panda", help="机器人名称。")
+parser.add_argument("--num_envs", type=int, default=128, help="要生成的环境数量。")
+# 添加AppLauncher命令行参数
 AppLauncher.add_app_launcher_args(parser)
-# parse the arguments
+# 解析参数
 args_cli = parser.parse_args()
 
-# launch omniverse app
+# 启动Omniverse应用
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
-"""Rest everything follows."""
+"""其余代码如下。"""
 
 import torch
 
@@ -51,28 +51,28 @@ from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 from isaaclab.utils.math import subtract_frame_transforms
 
 ##
-# Pre-defined configs
+# 预定义配置
 ##
 from isaaclab_assets import FRANKA_PANDA_HIGH_PD_CFG, UR10_CFG  # isort:skip
 
 
 @configclass
 class TableTopSceneCfg(InteractiveSceneCfg):
-    """Configuration for a cart-pole scene."""
+    """餐桌场景配置。"""
 
-    # ground plane
+    # 地面
     ground = AssetBaseCfg(
         prim_path="/World/defaultGroundPlane",
         spawn=sim_utils.GroundPlaneCfg(),
         init_state=AssetBaseCfg.InitialStateCfg(pos=(0.0, 0.0, -1.05)),
     )
 
-    # lights
+    # 灯光
     dome_light = AssetBaseCfg(
         prim_path="/World/Light", spawn=sim_utils.DomeLightCfg(intensity=3000.0, color=(0.75, 0.75, 0.75))
     )
 
-    # mount
+    # 支架
     table = AssetBaseCfg(
         prim_path="{ENV_REGEX_NS}/Table",
         spawn=sim_utils.UsdFileCfg(
@@ -80,133 +80,133 @@ class TableTopSceneCfg(InteractiveSceneCfg):
         ),
     )
 
-    # articulation
+    # 关节机器人
     if args_cli.robot == "franka_panda":
         robot = FRANKA_PANDA_HIGH_PD_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
     elif args_cli.robot == "ur10":
         robot = UR10_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
     else:
-        raise ValueError(f"Robot {args_cli.robot} is not supported. Valid: franka_panda, ur10")
+        raise ValueError(f"不支持的机器人 {args_cli.robot}。有效选项: franka_panda, ur10")
 
 
 def run_simulator(sim: sim_utils.SimulationContext, scene: InteractiveScene):
-    """Runs the simulation loop."""
-    # Extract scene entities
-    # note: we only do this here for readability.
+    """运行模拟循环。"""
+    # 提取场景实体
+    # 注意：我们在这里这样做只是为了提高可读性。
     robot = scene["robot"]
 
-    # Create controller
+    # 创建控制器
     diff_ik_cfg = DifferentialIKControllerCfg(command_type="pose", use_relative_mode=False, ik_method="dls")
     diff_ik_controller = DifferentialIKController(diff_ik_cfg, num_envs=scene.num_envs, device=sim.device)
 
-    # Markers
+    # 标记器
     frame_marker_cfg = FRAME_MARKER_CFG.copy()
     frame_marker_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
     ee_marker = VisualizationMarkers(frame_marker_cfg.replace(prim_path="/Visuals/ee_current"))
     goal_marker = VisualizationMarkers(frame_marker_cfg.replace(prim_path="/Visuals/ee_goal"))
 
-    # Define goals for the arm
+    # 定义机械臂的目标位置
     ee_goals = [
         [0.5, 0.5, 0.7, 0.707, 0, 0.707, 0],
         [0.5, -0.4, 0.6, 0.707, 0.707, 0.0, 0.0],
         [0.5, 0, 0.5, 0.0, 1.0, 0.0, 0.0],
     ]
     ee_goals = torch.tensor(ee_goals, device=sim.device)
-    # Track the given command
+    # 跟踪给定的命令
     current_goal_idx = 0
-    # Create buffers to store actions
+    # 创建存储动作的缓冲区
     ik_commands = torch.zeros(scene.num_envs, diff_ik_controller.action_dim, device=robot.device)
     ik_commands[:] = ee_goals[current_goal_idx]
 
-    # Specify robot-specific parameters
+    # 指定机器人特定参数
     if args_cli.robot == "franka_panda":
         robot_entity_cfg = SceneEntityCfg("robot", joint_names=["panda_joint.*"], body_names=["panda_hand"])
     elif args_cli.robot == "ur10":
         robot_entity_cfg = SceneEntityCfg("robot", joint_names=[".*"], body_names=["ee_link"])
     else:
-        raise ValueError(f"Robot {args_cli.robot} is not supported. Valid: franka_panda, ur10")
-    # Resolving the scene entities
+        raise ValueError(f"不支持的机器人 {args_cli.robot}。有效选项: franka_panda, ur10")
+    # 解析场景实体
     robot_entity_cfg.resolve(scene)
-    # Obtain the frame index of the end-effector
-    # For a fixed base robot, the frame index is one less than the body index. This is because
-    # the root body is not included in the returned Jacobians.
+    # 获取末端执行器的框架索引
+    # 对于固定基座的机器人，框架索引比身体索引少一。这是因为
+    # 根身体不包含在返回的雅可比矩阵中。
     if robot.is_fixed_base:
         ee_jacobi_idx = robot_entity_cfg.body_ids[0] - 1
     else:
         ee_jacobi_idx = robot_entity_cfg.body_ids[0]
 
-    # Define simulation stepping
+    # 定义模拟步进
     sim_dt = sim.get_physics_dt()
     count = 0
-    # Simulation loop
+    # 模拟循环
     while simulation_app.is_running():
-        # reset
+        # 重置
         if count % 150 == 0:
-            # reset time
+            # 重置时间
             count = 0
-            # reset joint state
+            # 重置关节状态
             joint_pos = robot.data.default_joint_pos.clone()
             joint_vel = robot.data.default_joint_vel.clone()
             robot.write_joint_state_to_sim(joint_pos, joint_vel)
             robot.reset()
-            # reset actions
+            # 重置动作
             ik_commands[:] = ee_goals[current_goal_idx]
             joint_pos_des = joint_pos[:, robot_entity_cfg.joint_ids].clone()
-            # reset controller
+            # 重置控制器
             diff_ik_controller.reset()
             diff_ik_controller.set_command(ik_commands)
-            # change goal
+            # 更改目标
             current_goal_idx = (current_goal_idx + 1) % len(ee_goals)
         else:
-            # obtain quantities from simulation
+            # 从模拟中获取量
             jacobian = robot.root_physx_view.get_jacobians()[:, ee_jacobi_idx, :, robot_entity_cfg.joint_ids]
             ee_pose_w = robot.data.body_pose_w[:, robot_entity_cfg.body_ids[0]]
             root_pose_w = robot.data.root_pose_w
             joint_pos = robot.data.joint_pos[:, robot_entity_cfg.joint_ids]
-            # compute frame in root frame
+            # 计算根框架中的框架
             ee_pos_b, ee_quat_b = subtract_frame_transforms(
                 root_pose_w[:, 0:3], root_pose_w[:, 3:7], ee_pose_w[:, 0:3], ee_pose_w[:, 3:7]
             )
-            # compute the joint commands
+            # 计算关节命令
             joint_pos_des = diff_ik_controller.compute(ee_pos_b, ee_quat_b, jacobian, joint_pos)
 
-        # apply actions
+        # 应用动作
         robot.set_joint_position_target(joint_pos_des, joint_ids=robot_entity_cfg.joint_ids)
         scene.write_data_to_sim()
-        # perform step
+        # 执行步骤
         sim.step()
-        # update sim-time
+        # 更新模拟时间
         count += 1
-        # update buffers
+        # 更新缓冲区
         scene.update(sim_dt)
 
-        # obtain quantities from simulation
+        # 从模拟中获取量
         ee_pose_w = robot.data.body_state_w[:, robot_entity_cfg.body_ids[0], 0:7]
-        # update marker positions
+        # 更新标记器位置
         ee_marker.visualize(ee_pose_w[:, 0:3], ee_pose_w[:, 3:7])
         goal_marker.visualize(ik_commands[:, 0:3] + scene.env_origins, ik_commands[:, 3:7])
 
 
 def main():
-    """Main function."""
-    # Load kit helper
+    """主函数。"""
+    # 加载kit助手
     sim_cfg = sim_utils.SimulationCfg(dt=0.01, device=args_cli.device)
     sim = sim_utils.SimulationContext(sim_cfg)
-    # Set main camera
+    # 设置主摄像头
     sim.set_camera_view([2.5, 2.5, 2.5], [0.0, 0.0, 0.0])
-    # Design scene
+    # 设计场景
     scene_cfg = TableTopSceneCfg(num_envs=args_cli.num_envs, env_spacing=2.0)
     scene = InteractiveScene(scene_cfg)
-    # Play the simulator
+    # 启动模拟器
     sim.reset()
-    # Now we are ready!
-    print("[INFO]: Setup complete...")
-    # Run the simulator
+    # 现在我们准备好了！
+    print("[INFO]: 设置完成...")
+    # 运行模拟器
     run_simulator(sim, scene)
 
 
 if __name__ == "__main__":
-    # run the main function
+    # 运行主函数
     main()
-    # close sim app
+    # 关闭模拟应用
     simulation_app.close()
