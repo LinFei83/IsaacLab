@@ -55,7 +55,8 @@ class CartpoleEnvCfg(DirectRLEnvCfg):
     rew_scale_cart_vel = -0.01   # 小车速度奖励
     rew_scale_pole_vel = -0.005  # 杆速度奖励
 
-
+# 创建一个继承自 DirectRLEnv 的主环境类（如 CartpoleEnv）。
+# 在这个类中，开发者需要 亲自实现 一系列核心方法来定义环境的行为。
 class CartpoleEnv(DirectRLEnv):
     cfg: CartpoleEnvCfg
 
@@ -69,6 +70,7 @@ class CartpoleEnv(DirectRLEnv):
         self.joint_pos = self.cartpole.data.joint_pos
         self.joint_vel = self.cartpole.data.joint_vel
 
+    # 场景创建。负责加载机器人、添加地面/灯光、克隆环境等。
     def _setup_scene(self):
         # 创建小车关节
         self.cartpole = Articulation(self.cfg.robot_cfg)
@@ -89,10 +91,12 @@ class CartpoleEnv(DirectRLEnv):
         # 缩放动作
         self.actions = self.action_scale * actions.clone()
 
+    # 应用动作。将策略网络输出的动作应用到仿真中的机器人上（例如，设置关节力矩）。
     def _apply_action(self) -> None:
         # 应用动作到小车关节
         self.cartpole.set_joint_effort_target(self.actions, joint_ids=self._cart_dof_idx)
 
+    # 定义观察。计算并返回一个字典，其中 policy 键对应的值是提供给策略网络的观察张量。
     def _get_observations(self) -> dict:
         # 构造观察值：杆角度、杆速度、小车位置、小车速度
         obs = torch.cat(
@@ -106,7 +110,7 @@ class CartpoleEnv(DirectRLEnv):
         )
         observations = {"policy": obs}
         return observations
-
+    # 定义奖励。根据当前状态计算奖励值并返回。教程中展示了如何使用 torch.jit.script 优化奖励计算。
     def _get_rewards(self) -> torch.Tensor:
         # 计算奖励
         total_reward = compute_rewards(
@@ -122,7 +126,7 @@ class CartpoleEnv(DirectRLEnv):
             self.reset_terminated,
         )
         return total_reward
-
+    # 计算终止条件。判断哪些环境因为超时（time_out）或失败（out_of_bounds）需要重置，并返回两个布尔张量。
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         # 更新关节位置和速度
         self.joint_pos = self.cartpole.data.joint_pos
@@ -130,11 +134,12 @@ class CartpoleEnv(DirectRLEnv):
 
         # 判断是否超时
         time_out = self.episode_length_buf >= self.max_episode_length - 1
-        # 判断是否超出边界
+        # 判断是否超出边界 判断平移是否超过3m 或者角度是否过大
         out_of_bounds = torch.any(torch.abs(self.joint_pos[:, self._cart_dof_idx]) > self.cfg.max_cart_pos, dim=1)
         out_of_bounds = out_of_bounds | torch.any(torch.abs(self.joint_pos[:, self._pole_dof_idx]) > math.pi / 2, dim=1)
         return out_of_bounds, time_out
 
+    # 执行重置。对需要重置的环境，将其状态（如关节位置、速度）恢复到初始随机状态。
     def _reset_idx(self, env_ids: Sequence[int] | None):
         # 如果env_ids为None，则重置所有环境
         if env_ids is None:
@@ -151,7 +156,7 @@ class CartpoleEnv(DirectRLEnv):
         )
         joint_vel = self.cartpole.data.default_joint_vel[env_ids]
 
-        # 更新根状态
+        # 更新根状态 确保生成的位置在正确的位置
         default_root_state = self.cartpole.data.default_root_state[env_ids]
         default_root_state[:, :3] += self.scene.env_origins[env_ids]
 
@@ -178,7 +183,7 @@ def compute_rewards(
     cart_vel: torch.Tensor,
     reset_terminated: torch.Tensor,
 ):
-    # 存活奖励：如果未终止，则获得奖励
+    # 存活奖励：如果未终止，则获得奖励 reset_terminated.float()如果环境存活则为0
     rew_alive = rew_scale_alive * (1.0 - reset_terminated.float())
     # 终止奖励：如果终止，则获得负奖励
     rew_termination = rew_scale_terminated * reset_terminated.float()
