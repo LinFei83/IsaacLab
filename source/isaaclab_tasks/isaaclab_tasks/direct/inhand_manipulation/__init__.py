@@ -2,3 +2,8 @@
 # All rights reserved.
 #
 # SPDX-License-Identifier: BSD-3-Clause
+
+"""
+inhand_manipulation 包的初始化文件
+用于导入和暴露该模块中的公共接口
+"""
