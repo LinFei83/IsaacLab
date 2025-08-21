@@ -3,10 +3,10 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""
-Shadow Hand环境的RL Games PPO前馈网络算法配置文件。
-该配置文件定义了使用RL Games库训练Shadow Hand环境的PPO算法参数，使用前馈网络结构。
-"""
+
+# Shadow Hand环境的RL Games PPO前馈网络算法配置文件。
+# 该配置文件定义了使用RL Games库训练Shadow Hand环境的PPO算法参数，使用前馈网络结构。
+
 
 params:
   # 随机种子
